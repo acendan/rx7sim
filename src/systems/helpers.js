@@ -47,7 +47,7 @@ export function createDirectionalLights(configs = []) {
  * @param {Array} opts.targetPosition - [x,y,z]
  * @returns {Object} { left: SpotLight, right: SpotLight }
  */
-export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distance = 10, angle = Math.PI / 6, penumbra = 0.5, decay = 1.0, leftPosition = [0.75, 0.76, 1.8], rightPosition = [-0.75, 0.76, 1.8], targetPosition = [0,0,10] } = {}) {
+export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distance = 10, angle = Math.PI / 6, penumbra = 0.5, decay = 1.0, leftPosition = [0.75, 0.76, 1.8], rightPosition = [-0.75, 0.76, 1.8], targetPosition = [0, 0, 10] } = {}) {
     const left = new THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
     left.position.set(...leftPosition)
     left.target.position.set(...targetPosition)
@@ -111,4 +111,88 @@ export function playPositionalAudio(audioLoader, emitter, path, { store = null, 
         if (store && storeKey) store[storeKey] = buffer
         playBuffer(buffer)
     })
+}
+
+/**
+ * Create a line with a clickable button at the end.
+ * - screenAnchor: NDC coordinates (x,y) in range [-1,1] for the fixed screen point (e.g. upper-left = [-0.9,0.9])
+ * - targetLocalPos: THREE.Vector3 position in local space of the target object (e.g. point on car model)
+ * - targetObject: THREE.Object3D that the local position belongs to (used to compute world position and raycast intersection)
+ * Returns an object { group, buttonMesh, line, update(camera), getClickable() }
+ */
+export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), targetLocalPos = new THREE.Vector3(0, 0, 0), targetObject = null, label = 'btn', color = 0x00ff00 } = {}) {
+    // Group holding line and button
+    const group = new THREE.Group()
+
+    // Line geometry (two points)
+    const points = [new THREE.Vector3(), new THREE.Vector3()]
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(points)
+    const lineMat = new THREE.LineBasicMaterial({ color: color })
+    const line = new THREE.Line(lineGeom, lineMat)
+    group.add(line)
+
+    // Button mesh at the vehicle end: small sphere
+    const btnGeom = new THREE.SphereGeometry(0.01, 12, 8)
+    const btnMat = new THREE.MeshBasicMaterial({ color: color })
+    const buttonMesh = new THREE.Mesh(btnGeom, btnMat)
+    buttonMesh.userData._lineButtonLabel = label
+    group.add(buttonMesh)
+
+    
+
+    // Raycaster used internally to find intersection point on targetObject
+    const raycaster = new THREE.Raycaster()
+
+    // Update function to be called each frame
+    function update(camera) {
+        // Compute world start point from screenAnchor (NDC) at z = 0.5
+        const ndc = new THREE.Vector3(screenAnchor.x, screenAnchor.y, 0.5)
+        ndc.unproject(camera)
+        const start = camera.position.clone()
+        // direction to unprojected point
+        const dir = ndc.clone().sub(camera.position).normalize()
+        // set a reasonable distance for the start point along the ray (near camera)
+        const startPoint = camera.position.clone().add(dir.clone().multiplyScalar(1.0))
+
+        // Compute target world position from targetLocalPos / targetObject
+        let targetWorld = new THREE.Vector3()
+        if (targetObject) {
+            targetWorld.copy(targetLocalPos)
+            targetObject.localToWorld(targetWorld)
+        } else {
+            targetWorld.copy(targetLocalPos)
+        }
+
+        // Raycast from camera towards targetWorld to find intersection with targetObject (car)
+        const rayDir = targetWorld.clone().sub(camera.position).normalize()
+        raycaster.set(camera.position, rayDir)
+        let endPoint = targetWorld.clone()
+        if (targetObject) {
+            const hits = raycaster.intersectObject(targetObject, true)
+            if (hits && hits.length > 0) {
+                endPoint.copy(hits[0].point)
+            } else {
+                // fallback: use targetWorld
+                endPoint.copy(targetWorld)
+            }
+        }
+
+        // Update line geometry positions (startPoint -> endPoint)
+        const posAttr = line.geometry.attributes.position
+        posAttr.setXYZ(0, startPoint.x, startPoint.y, startPoint.z)
+        posAttr.setXYZ(1, endPoint.x, endPoint.y, endPoint.z)
+        posAttr.needsUpdate = true
+
+        // Position the button at the endpoint and face it to camera
+        buttonMesh.position.copy(startPoint)
+        buttonMesh.lookAt(camera.position)
+    }
+
+    return {
+        group,
+        buttonMesh,
+        line,
+        update,
+        getClickable: () => buttonMesh
+    }
 }
