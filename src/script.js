@@ -127,9 +127,9 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
         // Line buttons anchored to screen corners and pointing to local car positions
         let hoodBtn, exhaustBtn, driverBtn
-        hoodBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.6, 2.0), targetObject: gltfCar.scene, label: 'hood', color: 0xff0000 })
-        exhaustBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.8, -0.8), targetLocalPos: new THREE.Vector3(0, 0.3, -2.0), targetObject: gltfCar.scene, label: 'exhaust', color: 0x00ff00 })
-        driverBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.2, -0.8), targetLocalPos: new THREE.Vector3(-0.4, 0.6, 0.5), targetObject: gltfCar.scene, label: 'driver', color: 0x0000ff })
+        hoodBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: 0x449edd })
+        exhaustBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.8, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: 0x9cff7f })
+        driverBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.2, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: 0xffe894 })
 
             // Add their groups to scene and register clickable meshes
             ;[hoodBtn, exhaustBtn, driverBtn].forEach(btn => {

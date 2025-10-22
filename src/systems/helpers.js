@@ -138,7 +138,23 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
     buttonMesh.userData._lineButtonLabel = label
     group.add(buttonMesh)
 
-    
+    // Create a 2D DOM label that will be positioned in screen space
+    let domLabel = null
+    if (typeof document !== 'undefined') {
+        domLabel = document.createElement('div')
+        domLabel.className = 'three-linebutton-label'
+        domLabel.style.position = 'absolute'
+        domLabel.style.pointerEvents = 'none'
+        domLabel.style.whiteSpace = 'nowrap'
+        domLabel.style.transform = 'translate(-50%, 0)'
+        domLabel.style.color = '#ffffff'
+        domLabel.style.fontFamily = 'sans-serif'
+        domLabel.style.fontSize = '18px'
+        domLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)'
+        domLabel.style.userSelect = 'none'
+        domLabel.textContent = label
+        document.body.appendChild(domLabel)
+    }
 
     // Raycaster used internally to find intersection point on targetObject
     const raycaster = new THREE.Raycaster()
@@ -148,8 +164,6 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         // Compute world start point from screenAnchor (NDC) at z = 0.5
         const ndc = new THREE.Vector3(screenAnchor.x, screenAnchor.y, 0.5)
         ndc.unproject(camera)
-        const start = camera.position.clone()
-        // direction to unprojected point
         const dir = ndc.clone().sub(camera.position).normalize()
         // set a reasonable distance for the start point along the ray (near camera)
         const startPoint = camera.position.clone().add(dir.clone().multiplyScalar(1.0))
@@ -183,9 +197,28 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         posAttr.setXYZ(1, endPoint.x, endPoint.y, endPoint.z)
         posAttr.needsUpdate = true
 
-        // Position the button at the endpoint and face it to camera
+        // Position the button at the start point and face it to camera
         buttonMesh.position.copy(startPoint)
         buttonMesh.lookAt(camera.position)
+
+        // Update DOM label position so it behaves like 2D text at screen position
+        if (domLabel) {
+            const proj = startPoint.clone().project(camera)
+            // Hide if behind camera or offscreen
+            if (proj.z > 1 || proj.z < -1 || proj.x < -1.2 || proj.x > 1.2 || proj.y < -1.2 || proj.y > 1.2) {
+                domLabel.style.display = 'none'
+            } else {
+                domLabel.style.display = ''
+                const canvas = document.querySelector('canvas.webgl')
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect()
+                    const x = (proj.x * 0.5 + 0.5) * rect.width + rect.left
+                    const y = (-proj.y * 0.5 + 0.51) * rect.height + rect.top
+                    domLabel.style.left = `${x}px`
+                    domLabel.style.top = `${y + 8}px`
+                }
+            }
+        }
     }
 
     return {
