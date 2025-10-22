@@ -17,7 +17,7 @@ import { particleSystem } from './systems/exhaust.js';
 import { createDirectionalLights, createHeadlightSpots } from './systems/helpers.js'
 
 /**
- * Base
+ * Setup
  */
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
@@ -37,10 +37,8 @@ axes.visible = false
 scene.add(axes)
 dbgUtils.add(axes, 'visible').name('Axes')
 
-// GLTFs
+// Loaders
 const gltfLoader = new GLTFLoader()
-
-// Audio
 const audioLoader = new THREE.AudioLoader();
 
 /**
@@ -67,30 +65,30 @@ carGroup.add(particleSystem.getMesh())
 
 // Animation mixers and actions
 let anims = {
+    // Wheels
     mixerWheels: null,
-    actWheelsRot: null, actTiresRot: null, // Wheel animations
+    actWheelsRot: null, actTiresRot: null,
 
+    // Lights
     mixerLights: null,
-    actLights0: null, actLights1: null, actLights2: null, actLights3: null, actLights4: null, // Light animations
+    actLights0: null, actLights1: null, actLights2: null, actLights3: null, actLights4: null,
     headLightL: null, headLightR: null,
     lightsFlipFlop: true,
     lightsIntensity: 3.0,
     lightsTimeScaleToggle: () => {
         if (anims.lightsFlipFlop) {
             anims.mixerLights.timeScale = 1.5
-            anims.actLights0.time = 0
-            anims.actLights1.time = 0
-            anims.actLights2.time = 0
-            anims.actLights3.time = 0
-            anims.actLights4.time = 0
+            for (let i = 0; i < 5; i++) {
+                const key = `actLights${i}`
+                anims[key].time = 0
+            }
             anims.lightsFlipFlop = false
         } else {
             anims.mixerLights.timeScale = -1.5
-            anims.actLights0.time = anims.actLights0.getClip().duration - anims.actLights0.time
-            anims.actLights1.time = anims.actLights1.getClip().duration - anims.actLights1.time
-            anims.actLights2.time = anims.actLights2.getClip().duration - anims.actLights2.time
-            anims.actLights3.time = anims.actLights3.getClip().duration - anims.actLights3.time
-            anims.actLights4.time = anims.actLights4.getClip().duration - anims.actLights4.time
+            for (let i = 0; i < 5; i++) {
+                const key = `actLights${i}`
+                anims[key].time = anims[key].getClip().duration - anims[key].time
+            }
             anims.lightsFlipFlop = true
         }
     },
@@ -100,7 +98,7 @@ let anims = {
 // Car
 gltfLoader.load('./model/rx7/rx7.gltf',
     (gltfCar) => {
-        console.log(gltfCar)
+        console.log("Loaded Model - RX7", gltfCar)
 
         gltfCar.scene.scale.set(1.0, 1.0, 1.0)
         carGroup.add(gltfCar.scene)
@@ -111,7 +109,7 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 // Wheels
 gltfLoader.load('./model/rx7_wheels/rx7_wheels.gltf',
     (wheelRL) => {
-        console.log(wheelRL)
+        console.log("Loaded Model - Wheel", wheelRL)
 
         // Rear left
         wheelRL.scene.scale.set(1.0, 1.0, 1.0)
@@ -145,30 +143,21 @@ gltfLoader.load('./model/rx7_wheels/rx7_wheels.gltf',
 // Headlights
 gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
     (gltfLights) => {
-        console.log(gltfLights)
+        console.log("Loaded Model - Headlights", gltfLights)
 
         gltfLights.scene.scale.set(1.0, 1.0, 1.0)
         carGroup.add(gltfLights.scene)
 
         // Animations
         anims.mixerLights = new THREE.AnimationMixer(gltfLights.scene)
-        anims.actLights0 = anims.mixerLights.clipAction(gltfLights.animations[0]) // Lights
-        anims.actLights0.setLoop(THREE.LoopOnce)
-        anims.actLights0.clampWhenFinished = true
-        anims.actLights1 = anims.mixerLights.clipAction(gltfLights.animations[1]) // Lights
-        anims.actLights1.setLoop(THREE.LoopOnce)
-        anims.actLights1.clampWhenFinished = true
-        anims.actLights2 = anims.mixerLights.clipAction(gltfLights.animations[2]) // Lights
-        anims.actLights2.setLoop(THREE.LoopOnce)
-        anims.actLights2.clampWhenFinished = true
-        anims.actLights3 = anims.mixerLights.clipAction(gltfLights.animations[3]) // Lights
-        anims.actLights3.setLoop(THREE.LoopOnce)
-        anims.actLights3.clampWhenFinished = true
-        anims.actLights4 = anims.mixerLights.clipAction(gltfLights.animations[4]) // Lights
-        anims.actLights4.setLoop(THREE.LoopOnce)
-        anims.actLights4.clampWhenFinished = true
+        for (let i = 0; i < 5; i++) {
+            const key = `actLights${i}`
+            anims[key] = anims.mixerLights.clipAction(gltfLights.animations[i])
+            anims[key].setLoop(THREE.LoopOnce)
+            anims[key].clampWhenFinished = true
+        }
         
-        // Create and add headlight spotlights (left/right) using helper
+        // Spotlights
         const { left: headLightL, right: headLightR } = createHeadlightSpots({ intensity: anims.lightsIntensity })
         anims.headLightL = headLightL
         anims.headLightR = headLightR
@@ -177,7 +166,7 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
         carGroup.add(anims.headLightR)
         carGroup.add(anims.headLightR.target)
 
-        // Add to dbg anims folder
+        // Dbg
         const dbgAnims = dbg.addFolder('Lights')
         dbgAnims.add(anims, 'lights').name('Lights')
     }
@@ -213,15 +202,12 @@ const sizes = {
 }
 
 window.addEventListener('resize', () => {
-    // Update sizes
     sizes.width = window.innerWidth
     sizes.height = window.innerHeight
 
-    // Update camera
     camera.aspect = sizes.width / sizes.height
     camera.updateProjectionMatrix()
 
-    // Update renderer
     renderer.setSize(sizes.width, sizes.height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 })
