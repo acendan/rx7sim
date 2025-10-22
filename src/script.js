@@ -14,7 +14,7 @@ const DriveState = {
 var driveState = DriveState.STOP;
 
 import { particleSystem } from './systems/exhaust.js';
-import { createDirectionalLights, createHeadlightSpots } from './systems/helpers.js'
+import { createDirectionalLights, createHeadlightSpots, playPositionalAudio } from './systems/helpers.js'
 
 /**
  * Setup
@@ -156,7 +156,7 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
             anims[key].setLoop(THREE.LoopOnce)
             anims[key].clampWhenFinished = true
         }
-        
+
         // Spotlights
         const { left: headLightL, right: headLightR } = createHeadlightSpots({ intensity: anims.lightsIntensity })
         anims.headLightL = headLightL
@@ -246,7 +246,6 @@ camera.add(listener);
 
 // Emitter
 const emitter = new THREE.PositionalAudio(listener);
-// emitter.setLoop(true)
 carGroup.add(emitter);
 
 const soundEngine = {
@@ -254,88 +253,40 @@ const soundEngine = {
     ignitionIdleBuffer: null,
     ignitionOffBuffer: null,
     ignitionOn: () => {
-        audioLoader.load('./audio/ignition_on.ogg', (buffer) => {
-            emitter.setBuffer(buffer)
-            emitter.setRefDistance(20)
-            // emitter.setVolume(0.5)
-
-            emitter.onEnded = () => {
-                // After ignition sound ends, start engine idle sound
-                if (!soundEngine.ignitionIdleBuffer) {
-                    console.warn('Ignition idle buffer not loaded yet! Expect hiccup in playback.')
-                    audioLoader.load('./audio/idle.ogg', (bufferIdle) => {
-                        soundEngine.ignitionIdleBuffer = bufferIdle
-
-                        emitter.stop()
-                        emitter.setBuffer(bufferIdle)
-                        emitter.setRefDistance(20)
-                        emitter.setLoop(true)
-                        // emitter.setVolume(0.5)
-                        emitter.play()
-                    });
-                } else {
-                    emitter.stop()
-                    emitter.setBuffer(soundEngine.ignitionIdleBuffer)
-                    emitter.setRefDistance(20)
-                    emitter.setLoop(true)
-                    // emitter.setVolume(0.5)
-                    emitter.play()
-                }
+        playPositionalAudio(audioLoader, emitter, './audio/ignition_on.ogg', {
+            store: soundEngine, storeKey: 'ignitionOnBuffer', loop: false,
+            onEnded: () => {
+                // After ignition sound ends, start engine idle loop
+                playPositionalAudio(audioLoader, emitter, './audio/idle.ogg', { store: soundEngine, storeKey: 'ignitionIdleBuffer', loop: true })
             }
+        })
 
-            emitter.play()
-
-            driveState = DriveState.ACCEL
-            anims.mixerWheels.stopAllAction()
-            anims.actWheelsRot.play()
-            anims.actTiresRot.play()
-            anims.mixerWheels.timeScale = 0.01
-
-            // Load ignition idle and off buffers for later use
-            audioLoader.load('./audio/idle.ogg', (bufferIdle) => {
-                soundEngine.ignitionIdleBuffer = bufferIdle
-            });
-            audioLoader.load('./audio/ignition_off.ogg', (bufferOff) => {
-                soundEngine.ignitionOffBuffer = bufferOff
-            });
-        });
+        driveState = DriveState.ACCEL
+        anims.mixerWheels.stopAllAction()
+        anims.actWheelsRot.play()
+        anims.actTiresRot.play()
+        anims.mixerWheels.timeScale = 0.01
     },
 
     ignitionOff: () => {
-        if (!soundEngine.ignitionOffBuffer) {
-            console.warn('Ignition off buffer not loaded yet! Expect hiccup in playback.')
-            audioLoader.load('./audio/ignition_off.ogg', (bufferOff) => {
-                soundEngine.ignitionOffBuffer = bufferOff
-
+        playPositionalAudio(audioLoader, emitter, './audio/ignition_off.ogg', {
+            store: soundEngine, storeKey: 'ignitionOffBuffer', loop: false,
+            onEnded: () => {
                 emitter.stop()
-                emitter.setBuffer(bufferOff)
-                emitter.setRefDistance(20)
-                emitter.setLoop(false)
-                // emitter.setVolume(0.5)
+            }
+        })
+        driveState = DriveState.DECEL
+    },
 
-                // Override onEnded to just stop the emitter after shutdown sound
-                emitter.onEnded = () => { emitter.stop() }
-
-                emitter.play()
-
-                driveState = DriveState.DECEL
-            });
-        } else {
-            emitter.stop()
-            emitter.setBuffer(soundEngine.ignitionOffBuffer)
-            emitter.setRefDistance(20)
-            emitter.setLoop(false)
-            // emitter.setVolume(0.5)
-
-            // Override onEnded to just stop the emitter after shutdown sound
-            emitter.onEnded = () => { emitter.stop() }
-
-            emitter.play()
-
-            driveState = DriveState.DECEL
-        }
+    load: () => {
+        // Cache buffers on startup for seamless playback
+        audioLoader.load('./audio/ignition_on.ogg', (buffer) => { soundEngine.ignitionOnBuffer = buffer });
+        audioLoader.load('./audio/idle.ogg', (buffer) => { soundEngine.ignitionIdleBuffer = buffer });
+        audioLoader.load('./audio/ignition_off.ogg', (buffer) => { soundEngine.ignitionOffBuffer = buffer });
     }
 }
+soundEngine.load()
+
 
 /**
  * Debug

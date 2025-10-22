@@ -70,3 +70,45 @@ export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distan
 
     return { left, right }
 }
+
+/**
+ * Load (if needed) and play audio on a THREE.PositionalAudio emitter.
+ * If a `store` object and `storeKey` are provided, the loaded buffer will be cached there and reused.
+ * @param {THREE.AudioLoader} audioLoader - instance used to load audio files
+ * @param {THREE.PositionalAudio} emitter - the positional audio emitter to play the buffer on
+ * @param {String} path - URL/path to the audio file
+ * @param {Object} [opts]
+ * @param {Object} [opts.store] - optional object to cache loaded buffers (e.g., soundEngine)
+ * @param {String} [opts.storeKey] - key on the store where the buffer will be saved/loaded
+ * @param {Boolean} [opts.loop=false] - whether to loop the audio
+ * @param {Number} [opts.refDistance=20] - emitter reference distance
+ * @param {Number|null} [opts.volume=null] - optional volume to set (0..1)
+ * @param {Function|null} [opts.onEnded=null] - optional onEnded callback to set on emitter
+ */
+export function playPositionalAudio(audioLoader, emitter, path, { store = null, storeKey = null, loop = false, refDistance = 20, volume = null, onEnded = null } = {}) {
+    const playBuffer = (buffer) => {
+        try {
+            emitter.stop()
+            emitter.setBuffer(buffer)
+            emitter.setRefDistance(refDistance)
+            emitter.setLoop(loop)
+            if (typeof volume === 'number' && emitter.setVolume) emitter.setVolume(volume)
+            if (onEnded) emitter.onEnded = onEnded
+            emitter.play()
+        } catch (e) {
+            // Defensive: if emitter is not ready, log and ignore
+            // (caller should ensure emitter is attached to listener)
+            // console.warn('playPositionalAudio: emitter playback failed', e)
+        }
+    }
+
+    if (store && storeKey && store[storeKey]) {
+        playBuffer(store[storeKey])
+        return
+    }
+
+    audioLoader.load(path, (buffer) => {
+        if (store && storeKey) store[storeKey] = buffer
+        playBuffer(buffer)
+    })
+}
