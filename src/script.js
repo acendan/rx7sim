@@ -14,6 +14,7 @@ const DriveState = {
 var driveState = DriveState.STOP;
 
 import { particleSystem } from './systems/exhaust.js';
+import { createDirectionalLights } from './systems/helpers.js'
 
 /**
  * Base
@@ -24,7 +25,7 @@ const canvas = document.querySelector('canvas.webgl')
 // Scene
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0xa0a0a0);
-scene.fog = new THREE.FogExp2( 0xefd1b5, 0.05 );
+scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
 
 // Debug
 const dbg = new dat.GUI()
@@ -209,40 +210,14 @@ scene.add(hemiLight);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
 scene.add(ambientLight)
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0)
-directionalLight.castShadow = true
-directionalLight.shadow.mapSize.set(1024, 1024)
-directionalLight.shadow.camera.far = 15
-directionalLight.shadow.camera.left = - 7
-directionalLight.shadow.camera.top = 7
-directionalLight.shadow.camera.right = 7
-directionalLight.shadow.camera.bottom = - 7
-directionalLight.position.set(5, 3, 4)
-scene.add(directionalLight)
+const directionalLights = createDirectionalLights([
+    { color: 0xffffff, intensity: 1.0, position: [5, 3, 4] },
+    { color: 0xffffff, intensity: 1.0, position: [8, 3, -1] },
+    { color: 0xffffff, intensity: 0.2, position: [-5, 5, -5] }
+])
+directionalLights.forEach(l => scene.add(l))
 
-const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0)
-directionalLight2.castShadow = true
-directionalLight2.shadow.mapSize.set(1024, 1024)
-directionalLight2.shadow.camera.far = 15
-directionalLight2.shadow.camera.left = - 7
-directionalLight2.shadow.camera.top = 7
-directionalLight2.shadow.camera.right = 7
-directionalLight2.shadow.camera.bottom = - 7
-directionalLight2.position.set(8, 3, -1)
-scene.add(directionalLight2)
-
-const directionalLight3 = new THREE.DirectionalLight(0xffffff, 0.2)
-directionalLight3.castShadow = true
-directionalLight3.shadow.mapSize.set(1024, 1024)
-directionalLight3.shadow.camera.far = 15
-directionalLight3.shadow.camera.left = - 7
-directionalLight3.shadow.camera.top = 7
-directionalLight3.shadow.camera.right = 7
-directionalLight3.shadow.camera.bottom = - 7
-directionalLight3.position.set(-5, 5, -5)
-scene.add(directionalLight3)
-
-// const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight3, 0.2)
+// const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLights[0], 0.2)
 // scene.add(directionalLightHelper)
 
 /**
@@ -320,7 +295,7 @@ const soundEngine = {
                     console.warn('Ignition idle buffer not loaded yet! Expect hiccup in playback.')
                     audioLoader.load('./audio/idle.ogg', (bufferIdle) => {
                         soundEngine.ignitionIdleBuffer = bufferIdle
-                        
+
                         emitter.stop()
                         emitter.setBuffer(bufferIdle)
                         emitter.setRefDistance(20)
@@ -361,7 +336,7 @@ const soundEngine = {
             console.warn('Ignition off buffer not loaded yet! Expect hiccup in playback.')
             audioLoader.load('./audio/ignition_off.ogg', (bufferOff) => {
                 soundEngine.ignitionOffBuffer = bufferOff
-                
+
                 emitter.stop()
                 emitter.setBuffer(bufferOff)
                 emitter.setRefDistance(20)

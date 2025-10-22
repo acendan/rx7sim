@@ -42,8 +42,8 @@ export const particleSystem = {
                 speed_to: 0.006,
                 scale_from: 0.1,
                 scale_increase: 0.002,
-                color_from: [0.9,0.9,0.9],
-                color_to: [0.5,0.5,0.5],
+                color_from: [0.9, 0.9, 0.9],
+                color_to: [0.5, 0.5, 0.5],
                 color_speed_from: 1.0,
                 color_speed_to: 1.0,
                 brightness_from: 0.5,
@@ -71,13 +71,13 @@ export const particleSystem = {
                 let add = 0
                 emitter.settings.elapsed += deltaTime
                 add = Math.floor(emitter.settings.elapsed / emitter.settings.add_time)
-                emitter.settings.elapsed -= add * emitter.settings.add_time 
+                emitter.settings.elapsed -= add * emitter.settings.add_time
 
-                while(add--) {
+                while (add--) {
                     // Create new particle
                     const radius_1 = emitter.settings.radius_1 * Math.sqrt(Math.random())
                     const theta = 2 * Math.PI * Math.random()
-                    const x_1 = emitter.position.x + radius_1 * Math.cos(theta) 
+                    const x_1 = emitter.position.x + radius_1 * Math.cos(theta)
                     const z_1 = emitter.position.z + radius_1 * Math.sin(theta)
 
                     const radius_2 = emitter.settings.radius_2 * Math.sqrt(Math.random())
@@ -118,26 +118,26 @@ export const particleSystem = {
         // Update existing particles
         for (let i = smokeParticles.length - 1; i >= 0; i--) {
             const p = smokeParticles[i]
-            
+
             // Update particle position based on quaternion direction
             p.offset[0] += p.quaternion[0]
             p.offset[1] += p.quaternion[1]
             p.offset[2] += p.quaternion[2]
-            
+
             // Update scale
             p.scale[0] += p.scale_increase
             p.scale[1] += p.scale_increase
-            
+
             // Update color
             p.color_pr += p.color_speed
             if (p.color_pr > 1) p.color_pr = 1
             p.color[0] = p.color_from[0] + (p.color_to[0] - p.color_from[0]) * p.color_pr
             p.color[1] = p.color_from[1] + (p.color_to[1] - p.color_from[1]) * p.color_pr
             p.color[2] = p.color_from[2] + (p.color_to[2] - p.color_from[2]) * p.color_pr
-            
+
             // Update opacity
             p.color[3] -= p.opacity_decrease
-            
+
             // Remove dead particles
             p.live -= deltaTime
             if (p.live <= 0 || p.color[3] <= 0) {
