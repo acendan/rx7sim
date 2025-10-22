@@ -94,7 +94,7 @@ let anims = {
 }
 
 // Car
-gltfLoader.load('/model/rx7/rx7.gltf',
+gltfLoader.load('./model/rx7/rx7.gltf',
     (gltfCar) => {
         console.log(gltfCar)
 
@@ -104,7 +104,7 @@ gltfLoader.load('/model/rx7/rx7.gltf',
 )
 
 // Wheels
-gltfLoader.load('/model/rx7_wheels/rx7_wheels.gltf',
+gltfLoader.load('./model/rx7_wheels/rx7_wheels.gltf',
     (wheelRL) => {
         console.log(wheelRL)
 
@@ -138,7 +138,7 @@ gltfLoader.load('/model/rx7_wheels/rx7_wheels.gltf',
 )
 
 // Headlights
-gltfLoader.load('/model/rx7_lights/rx7_lights.gltf',
+gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
     (gltfLights) => {
         console.log(gltfLights)
 
