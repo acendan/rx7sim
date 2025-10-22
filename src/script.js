@@ -14,7 +14,7 @@ const DriveState = {
 var driveState = DriveState.STOP;
 
 import { particleSystem } from './systems/exhaust.js';
-import { createDirectionalLights } from './systems/helpers.js'
+import { createDirectionalLights, createHeadlightSpots } from './systems/helpers.js'
 
 /**
  * Base
@@ -167,35 +167,19 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
         anims.actLights4 = anims.mixerLights.clipAction(gltfLights.animations[4]) // Lights
         anims.actLights4.setLoop(THREE.LoopOnce)
         anims.actLights4.clampWhenFinished = true
+        
+        // Create and add headlight spotlights (left/right) using helper
+        const { left: headLightL, right: headLightR } = createHeadlightSpots({ intensity: anims.lightsIntensity })
+        anims.headLightL = headLightL
+        anims.headLightR = headLightR
+        carGroup.add(anims.headLightL)
+        carGroup.add(anims.headLightL.target)
+        carGroup.add(anims.headLightR)
+        carGroup.add(anims.headLightR.target)
 
         // Add to dbg anims folder
         const dbgAnims = dbg.addFolder('Lights')
         dbgAnims.add(anims, 'lights').name('Lights')
-
-        // Add threejs directional lights to scene when headlights turn on
-        anims.headLightR = new THREE.SpotLight(0xFFFFDE, anims.lightsIntensity, 10, Math.PI / 6, 0.5, 1.0)
-        anims.headLightR.position.set(-0.75, 0.76, 1.8)
-        anims.headLightR.target.position.set(0, 0, 10)
-        anims.headLightR.castShadow = true
-        anims.headLightR.shadow.mapSize.width = 1024
-        anims.headLightR.shadow.mapSize.height = 1024
-        anims.headLightR.shadow.camera.near = 0.5
-        anims.headLightR.shadow.camera.far = 20
-        anims.headLightR.shadow.camera.fov = 30
-        carGroup.add(anims.headLightR)
-        carGroup.add(anims.headLightR.target)
-
-        anims.headLightL = new THREE.SpotLight(0xFFFFDE, anims.lightsIntensity, 10, Math.PI / 6, 0.5, 1.0)
-        anims.headLightL.position.set(0.75, 0.76, 1.8)
-        anims.headLightL.target.position.set(0, 0, 10)
-        anims.headLightL.castShadow = true
-        anims.headLightL.shadow.mapSize.width = 1024
-        anims.headLightL.shadow.mapSize.height = 1024
-        anims.headLightL.shadow.camera.near = 0.5
-        anims.headLightL.shadow.camera.far = 20
-        anims.headLightL.shadow.camera.fov = 30
-        carGroup.add(anims.headLightL)
-        carGroup.add(anims.headLightL.target)
     }
 )
 
