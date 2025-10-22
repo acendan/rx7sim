@@ -137,6 +137,14 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                 lineButtons.push(btn)
                 clickableMeshes.push(btn.getClickable())
             })
+
+        // Line button visibility
+        const buttonVisibility = { 'Mic Perspective Btns': true }
+        dbgUtils.add(buttonVisibility, 'Mic Perspective Btns').onChange(visible => {
+            hoodBtn.setVisible(visible)
+            exhaustBtn.setVisible(visible)
+            driverBtn.setVisible(visible)
+        })
     }
 )
 

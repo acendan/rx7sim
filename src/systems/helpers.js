@@ -159,6 +159,9 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
     // Raycaster used internally to find intersection point on targetObject
     const raycaster = new THREE.Raycaster()
 
+    // Track visibility state
+    let isVisible = true
+
     // Update function to be called each frame
     function update(camera) {
         // Compute world start point from screenAnchor (NDC) at z = 0.5
@@ -203,6 +206,12 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
 
         // Update DOM label position so it behaves like 2D text at screen position
         if (domLabel) {
+            // If not visible, ensure label is hidden
+            if (!isVisible) {
+                domLabel.style.display = 'none'
+                return
+            }
+
             const proj = startPoint.clone().project(camera)
             // Hide if behind camera or offscreen
             if (proj.z > 1 || proj.z < -1 || proj.x < -1.2 || proj.x > 1.2 || proj.y < -1.2 || proj.y > 1.2) {
@@ -221,11 +230,21 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         }
     }
 
+    // Toggle visibility of both 3D elements and DOM label
+    function setVisible(visible) {
+        isVisible = visible
+        group.visible = visible
+        if (domLabel) {
+            domLabel.style.display = visible ? '' : 'none'
+        }
+    }
+
     return {
         group,
         buttonMesh,
         line,
         update,
-        getClickable: () => buttonMesh
+        getClickable: () => buttonMesh,
+        setVisible
     }
 }
