@@ -24,7 +24,7 @@ const canvas = document.querySelector('canvas.webgl')
 // Scene
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0xa0a0a0);
-scene.fog = new THREE.Fog(0xa0a0a0, 10, 500);
+scene.fog = new THREE.FogExp2( 0xefd1b5, 0.05 );
 
 // Debug
 const dbg = new dat.GUI()
