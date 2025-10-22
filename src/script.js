@@ -305,7 +305,7 @@ const soundEngine = {
     ignitionIdleBuffer: null,
     ignitionOffBuffer: null,
     ignitionOn: () => {
-        audioLoader.load('/audio/ignition_on.ogg', (buffer) => {
+        audioLoader.load('./audio/ignition_on.ogg', (buffer) => {
             emitter.setBuffer(buffer)
             emitter.setRefDistance(20)
             // emitter.setVolume(0.5)
@@ -314,7 +314,7 @@ const soundEngine = {
                 // After ignition sound ends, start engine idle sound
                 if (!soundEngine.ignitionIdleBuffer) {
                     console.warn('Ignition idle buffer not loaded yet! Expect hiccup in playback.')
-                    audioLoader.load('/audio/idle.ogg', (bufferIdle) => {
+                    audioLoader.load('./audio/idle.ogg', (bufferIdle) => {
                         soundEngine.ignitionIdleBuffer = bufferIdle
                         
                         emitter.stop()
@@ -343,10 +343,10 @@ const soundEngine = {
             anims.mixerWheels.timeScale = 0.01
 
             // Load ignition idle and off buffers for later use
-            audioLoader.load('/audio/idle.ogg', (bufferIdle) => {
+            audioLoader.load('./audio/idle.ogg', (bufferIdle) => {
                 soundEngine.ignitionIdleBuffer = bufferIdle
             });
-            audioLoader.load('/audio/ignition_off.ogg', (bufferOff) => {
+            audioLoader.load('./audio/ignition_off.ogg', (bufferOff) => {
                 soundEngine.ignitionOffBuffer = bufferOff
             });
         });
@@ -355,7 +355,7 @@ const soundEngine = {
     ignitionOff: () => {
         if (!soundEngine.ignitionOffBuffer) {
             console.warn('Ignition off buffer not loaded yet! Expect hiccup in playback.')
-            audioLoader.load('/audio/ignition_off.ogg', (bufferOff) => {
+            audioLoader.load('./audio/ignition_off.ogg', (bufferOff) => {
                 soundEngine.ignitionOffBuffer = bufferOff
                 
                 emitter.stop()
