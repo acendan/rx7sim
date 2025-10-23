@@ -27,10 +27,16 @@ scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
 
 // Debug
 const dbg = new dat.GUI()
+
+const dbgAudioSettings = {
+    'Meters': true,
+    'Emitters': false
+}
 const dbgAudio = dbg.addFolder('Audio')
 let dbgAudioMeters = null
 let dbgAudioEmitters = null
 let dbgAudioMicPersp = null
+
 const dbgVehicle = dbg.addFolder('Vehicle')
 let dbgVehCarSelect = null
 let dbgVehIgnOn = null
@@ -180,8 +186,8 @@ gltfLoader.load('./model/rx7/rx7.gltf',
             })
 
         // Line button visibility
-        const buttonVisibility = { 'Mic Perspectives': true }
-        dbgAudioMicPersp = dbgAudio.add(buttonVisibility, 'Mic Perspectives').onChange(visible => {
+        const buttonVisibility = { 'Solo Buttons': true }
+        dbgAudioMicPersp = dbgAudio.add(buttonVisibility, 'Solo Buttons').onChange(visible => {
             intakeSoloBtn.setVisible(visible)
             exhaustSoloBtn.setVisible(visible)
             interiorSoloBtn.setVisible(visible)
@@ -486,46 +492,85 @@ const soundEngine = {
     },
 
     applyConvolutionReverb(reverbBuffer) {
+        // Uses latest selected reverb name stored on soundEngine
+        const blend = this.currentReverbBlend ?? 0.5
         Object.values(audioEmitters).forEach(emitter => {
-            const convolver = listener.context.createConvolver();
-            convolver.buffer = reverbBuffer;
-            emitter.setFilter(convolver);
+            // Remove existing filter graph if present
+            if (emitter._reverbNodes) {
+                // Disconnect old nodes
+                try {
+                    const { dryGain, wetGain, convolver } = emitter._reverbNodes
+                    dryGain.disconnect()
+                    wetGain.disconnect()
+                    convolver.disconnect()
+                } catch(_) {}
+                emitter._reverbNodes = null
+            }
 
-            // Set filter mix to 0.5 for a balanced effect
-            console.log(emitter)
-        });
+            const ctx = listener.context
+            const convolver = ctx.createConvolver()
+            convolver.buffer = reverbBuffer
+
+            // Gain nodes for wet/dry mix; apply normalization to wet path only
+            const fxScalingFactor = 0.33 // Lower overall level to avoid clipping when multiple emitters active
+            const wetGain = ctx.createGain()
+            const dryGain = ctx.createGain()
+            wetGain.gain.value = blend * fxScalingFactor
+            dryGain.gain.value = (1.0 - blend) * fxScalingFactor
+
+            // PositionalAudio has .panner as its output prior to filters
+            const sourceNode = emitter.panner
+            if (!sourceNode) {
+                console.warn('PositionalAudio panner node missing; cannot apply reverb graph')
+                return
+            }
+
+            // Connect graph: source -> dryGain -> destination; source -> convolver -> wetGain -> destination
+            sourceNode.connect(dryGain)
+            dryGain.connect(ctx.destination)
+            sourceNode.connect(convolver)
+            convolver.connect(wetGain)
+            wetGain.connect(ctx.destination)
+
+            emitter._reverbNodes = { convolver, wetGain, dryGain }
+        })
     }
 }
 soundEngine.load()
 
-
-// Create meters panel
-const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
-
-// Add debug toggles for audio visualization
-const dbgAudioSettings = {
-    'Meters': true,
-    'Emitters': false
-}
-dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
-
-// Add button to apply convolution reverb to all emitters
+// Convolution reverb presets with blend (0..1 wet mix)
 const reverbMap = {
-    'Parking Garage': './audio/ir/parkingGarage.ogg'
+    'Parking Garage': { path: './audio/ir/parkingGarage.ogg', blend: 0.6 }
 }
-dbgAudio.add({ Reverb: 'None' }, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Reverb').onChange(name => {
+const reverbParams = { Reverb: 'None' }
+dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Reverb').onChange(name => {
     if (name === 'None') {
-        // remove any convolution filter
-        Object.values(audioEmitters).forEach(em => em.setFilter(null))
+        // Remove custom filter graph (disconnect reverb nodes)
+        Object.values(audioEmitters).forEach(em => {
+            if (em._reverbNodes) {
+                try {
+                    const { dryGain, wetGain, convolver } = em._reverbNodes
+                    dryGain.disconnect(); wetGain.disconnect(); convolver.disconnect();
+                } catch(_) {}
+                em._reverbNodes = null
+            }
+        })
+        soundEngine.currentReverbBlend = null
         return
     }
-    const path = reverbMap[name]
-    if (!path) return
+    const preset = reverbMap[name]
+    if (!preset) return
+    const { path, blend = 0.5 } = preset
+    soundEngine.currentReverbBlend = blend
     const reverbLoader = new THREE.AudioLoader()
     reverbLoader.load(path, (buffer) => {
         soundEngine.applyConvolutionReverb(buffer)
     })
 })
+
+// Add meters
+const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
+dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
 
 // Create emitter position debuggers (initially hidden)
 const emitterDebuggers = new Map()
