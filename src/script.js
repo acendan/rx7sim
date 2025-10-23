@@ -5,30 +5,13 @@ import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
 
-const DriveState = {
-    STOP: 'stop',
-    DRIVE: 'drive',
-    ACCEL: 'accel',
-    DECEL: 'decel'
-}
+import { DriveState, SoloState, SoloBtnColors } from './systems/constants.js'
 var driveState = DriveState.STOP
-
-const SoloState = {
-    MIX: 'mix',
-    INTAKE: 'intake',
-    EXHAUST: 'exhaust',
-    INTERIOR: 'interior'
-}
 var soloState = SoloState.MIX
-
-const SoloBtnColors = {
-    INTAKE: 0x4e9eff,
-    EXHAUST: 0x9cff7f,
-    INTERIOR: 0xffe894
-}
 
 import { particleSystem } from './systems/exhaust.js'
 import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton } from './systems/helpers.js'
+import { createMixer } from './systems/meters.js'
 
 /**
  * Setup
@@ -460,6 +443,15 @@ const soundEngine = {
 soundEngine.load()
 
 
+// Create mixer panel (initially hidden)
+const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: false })
+
+// Add debug toggle for meter visibility
+const dbgAudio = dbg.addFolder('Audio')
+const audioDebug = { 'Show Meters': false }
+dbgAudio.add(audioDebug, 'Show Meters').onChange(v => audioMeters.setVisible(v))
+
+
 /**
  * Debug
  */
@@ -546,6 +538,8 @@ const tick = () => {
     if (driveState !== DriveState.STOP) {
         soundEngine.setEmitterVolumes(soloState)
     }
+
+    audioMeters.update()
 
     // Render
     renderer.render(scene, camera)
