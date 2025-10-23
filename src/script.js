@@ -223,8 +223,7 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
         carGroup.add(anims.headLightR.target)
 
         // Dbg
-        const dbgAnims = dbg.addFolder('Lights')
-        dbgAnims.add(anims, 'lights').name('Lights')
+        dbgVehicle.add(anims, 'lights').name('Headlights')
     }
 )
 
@@ -393,6 +392,9 @@ const soundEngine = {
         anims.actWheelsRot.play();
         anims.actTiresRot.play();
         anims.mixerWheels.timeScale = 0.01;
+
+        dbgEngineIgnOn.hide();
+        dbgEngineIgnOff.show();
     },
 
     ignitionOff: () => {
@@ -407,7 +409,11 @@ const soundEngine = {
                 }
             });
         });
+
         driveState = DriveState.DECEL;
+
+        dbgEngineIgnOn.show();
+        dbgEngineIgnOff.hide();
     },
 
     load() {
@@ -437,9 +443,9 @@ dbgAudio.add(audioDebug, 'Meters').onChange(v => audioMeters.setVisible(v))
 /**
  * Debug
  */
-const dbgEngine = dbg.addFolder('Engine')
-dbgEngine.add(soundEngine, 'ignitionOn').name('Ignition On')
-dbgEngine.add(soundEngine, 'ignitionOff').name('Ignition Off')
+const dbgVehicle = dbg.addFolder('Vehicle')
+const dbgEngineIgnOn = dbgVehicle.add(soundEngine, 'ignitionOn').name('Ignition On')
+const dbgEngineIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').hide()
 
 /**
  * Main
