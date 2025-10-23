@@ -117,8 +117,6 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
                 // Solo button click event
                 btn.button.addEventListener('click', () => {
-                    console.log('Clicked:', btn.button.textContent)
-
                     // Clicked same button again: reset to no solo
                     if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
                         soloState = SoloState.MIX
@@ -348,16 +346,6 @@ const soundEngine = {
             const emitter = audioEmitters[pos];
             const shouldBePlaying = pos === activePosition || (activePosition === SoloState.MIX && pos === 'mix');
 
-            // Make sure the emitter is playing if it should be
-            if (shouldBePlaying && !emitter.isPlaying && this.buffers[pos].idle) {
-                playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
-                    store: this.buffers[pos],
-                    storeKey: 'idle',
-                    loop: true,
-                    volume: 0.0  // Start at 0 and fade in
-                });
-            }
-
             // Handle volume transitions
             if (shouldBePlaying) {
                 // Fade in
@@ -383,17 +371,13 @@ const soundEngine = {
                 store: soundEngine.buffers[pos], 
                 storeKey: 'ignitionOn',
                 loop: false,
-                volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0,
                 onEnded: () => {
                     // After ignition sound ends, start engine idle loop for this position
                     playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
                         store: soundEngine.buffers[pos],
                         storeKey: 'idle',
                         loop: true,
-                        volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0,
-                        onEnded: () => {
-                            emitter.stop();
-                        }
+                        onEnded: () => {}
                     });
                 }
             });
@@ -413,7 +397,6 @@ const soundEngine = {
                 store: soundEngine.buffers[pos],
                 storeKey: 'ignitionOff',
                 loop: false,
-                volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0,
                 onEnded: () => {
                     emitter.stop();
                 }
@@ -535,9 +518,7 @@ const tick = () => {
     }
 
     // Update audio emitter volumes for smooth transitions
-    if (driveState !== DriveState.STOP) {
-        soundEngine.setEmitterVolumes(soloState)
-    }
+    soundEngine.setEmitterVolumes(soloState)
 
     audioMeters.update()
 
