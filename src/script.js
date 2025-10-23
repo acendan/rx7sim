@@ -121,8 +121,6 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                     if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
                         soloState = SoloState.MIX
 
-                        console.log('Reset to MIX')
-
                         // Reset all button styles
                         lineButtons.forEach(otherBtn => {
                             if (otherBtn !== btn) {
@@ -307,27 +305,25 @@ const audioEmitters = {
     interior: new THREE.PositionalAudio(listener)
 };
 
-// Set initial volumes based on default soloState (MIX)
-Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-    emitter.setVolume(pos === 'mix' ? 1.0 : 0.0);
-});
-
-// Add emitters to car at appropriate positions
+// Add emitters to car at appropriate positions & starting volume
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     carGroup.add(emitter);
-    // Position emitters relative to car model
     switch(pos) {
         case 'intake':
             emitter.position.set(0, 0.2, 2.1); // Front of car
+            emitter.setVolume(0);
             break;
         case 'exhaust':
             emitter.position.set(-0.5, 0.3, -2.0); // Rear of car
+            emitter.setVolume(0);
             break;
         case 'interior':
             emitter.position.set(0.0, 0.1, -0.2); // Inside car
+            emitter.setVolume(0);
             break;
         case 'mix':
             emitter.position.set(0, 0, 0); // Center for mix
+            emitter.setVolume(1.0);
             break;
         default:
             emitter.position.set(0, 0, 0);
