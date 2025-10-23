@@ -6,11 +6,12 @@ import * as dat from 'lil-gui'
 THREE.ColorManagement.enabled = false
 
 import { DriveState, SoloState, SoloBtnColors, EmitterVolMults } from './systems/constants.js'
+import { colorToHex } from './systems/helpers.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
 
 import { particleSystem } from './systems/exhaust.js'
-import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton } from './systems/helpers.js'
+import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton, createAudioEmitterDebugger } from './systems/helpers.js'
 import { createMixer } from './systems/meters.js'
 
 /**
@@ -124,7 +125,7 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                         // Reset all button styles
                         lineButtons.forEach(otherBtn => {
                             if (otherBtn !== btn) {
-                                otherBtn.button.style.backgroundColor = `#${SoloBtnColors[otherBtn.button.textContent.toUpperCase()].toString(16).padStart(6, '0')}`
+                                otherBtn.button.style.backgroundColor = colorToHex(SoloBtnColors[otherBtn.button.textContent.toUpperCase()])
                                 otherBtn.button.style.color = `#272727ff`
                                 otherBtn.line.visible = true
                                 otherBtn.button.dimmed = false
@@ -444,10 +445,29 @@ soundEngine.load()
 // Create meters panel
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 
-// Add debug toggle for meter visibility
-const audioDebug = { 'Meters': true }
+// Add debug toggles for audio visualization
+const audioDebug = { 
+    'Meters': true,
+    'Emitter Positions': false 
+}
 dbgAudio.add(audioDebug, 'Meters').onChange(v => audioMeters.setVisible(v))
 
+// Create emitter position debuggers (initially hidden)
+const emitterDebuggers = new Map()
+Object.entries(audioEmitters).forEach(([pos, emitter]) => {
+    const helper = createAudioEmitterDebugger(emitter, { 
+        color: SoloBtnColors[pos.toUpperCase()] || 0xffff00,
+        size: 0.15
+    })
+    helper.visible = false
+    carGroup.add(helper)
+    emitterDebuggers.set(pos, helper)
+})
+
+// Add debug toggle for emitter position helpers
+dbgAudio.add(audioDebug, 'Emitter Positions').onChange(v => {
+    emitterDebuggers.forEach(helper => helper.visible = v)
+})
 
 /**
  * Debug

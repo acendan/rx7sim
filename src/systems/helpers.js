@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+// Note: colorToHex is defined below; forward usage inside file is fine.
 
 /**
  * Create a configured directional light
@@ -31,6 +32,57 @@ export function createDirectionalLight({ color = 0xffffff, intensity = 1.0, mapS
  */
 export function createDirectionalLights(configs = []) {
     return configs.map(cfg => createDirectionalLight(cfg))
+}
+
+/**
+ * Convert a numeric color (e.g. 0xff00aa) to a #RRGGBB string.
+ * Safely handles already-string inputs (returns them unchanged if they look like a hex color).
+ * @param {number|string} c
+ * @returns {string} #RRGGBB
+ */
+export function colorToHex(c) {
+    if (typeof c === 'string') {
+        if (c.startsWith('#') && (c.length === 7 || c.length === 9)) return c.slice(0,7)
+        // Attempt to parse numeric from string
+        try {
+            const n = Number(c)
+            if (!Number.isNaN(n)) return `#${(n >>> 0).toString(16).padStart(6, '0')}`
+        } catch (_) { /* ignore */ }
+        return c // fallback
+    }
+    return `#${(c >>> 0).toString(16).padStart(6, '0')}`
+}
+
+/**
+ * Create a visual helper for an audio emitter showing its position and details
+ * @param {THREE.PositionalAudio} emitter - The audio emitter to debug
+ * @param {Object} opts - options
+ * @param {number} opts.size - Size of the helper
+ * @param {number} opts.color - Color of the helper
+ * @returns {THREE.Group} The helper object
+ */
+export function createAudioEmitterDebugger(emitter, { size = 0.2, color = 0xffff00 } = {}) {
+    const helper = new THREE.Group()
+    
+    // Sphere at emitter position
+    const geometry = new THREE.SphereGeometry(size)
+    const material = new THREE.MeshBasicMaterial({ 
+        color, 
+        wireframe: true,
+        transparent: true,
+        opacity: 0.8 
+    })
+    const sphere = new THREE.Mesh(geometry, material)
+    helper.add(sphere)
+
+    // Axes helper to show orientation
+    const axes = new THREE.AxesHelper(size * 1.5)
+    helper.add(axes)
+
+    // Match position to emitter
+    helper.position.copy(emitter.position)
+
+    return helper
 }
 
 /**
@@ -139,7 +191,7 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         domButton.style.padding = '4px 12px'
         domButton.style.border = 'none'
         domButton.style.borderRadius = '12px'
-        domButton.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`
+    domButton.style.backgroundColor = colorToHex(color)
         domButton.style.color = '#272727ff'
         domButton.style.fontFamily = 'sans-serif'
         domButton.style.fontSize = '14px'
@@ -152,10 +204,10 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
 
         // Add hover effect
         domButton.addEventListener('mouseenter', () => {
-            domButton.style.backgroundColor = `#${Math.min(color * 4, 0xffffff).toString(16).padStart(6, '0')}`
+            domButton.style.backgroundColor = colorToHex(Math.min(color * 4, 0xffffff))
         })
         domButton.addEventListener('mouseleave', () => {
-            domButton.style.backgroundColor = domButton.dimmed ? `#444444` : `#${color.toString(16).padStart(6, '0')}`
+            domButton.style.backgroundColor = domButton.dimmed ? `#444444` : colorToHex(color)
         })
     }
 

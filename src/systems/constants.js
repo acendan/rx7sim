@@ -14,6 +14,7 @@ export const SoloState = {
 }
 
 export const SoloBtnColors = {
+    MIX: 0xa056aa,
     INTAKE: 0x4e9eff,
     EXHAUST: 0x9cff7f,
     INTERIOR: 0xffe894
