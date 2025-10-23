@@ -407,7 +407,10 @@ const soundEngine = {
                         store: soundEngine.buffers[pos],
                         storeKey: 'idle',
                         loop: true,
-                        volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0
+                        volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0,
+                        onEnded: () => {
+                            emitter.stop();
+                        }
                     });
                 }
             });
