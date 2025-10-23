@@ -353,13 +353,13 @@ const soundEngine = {
             if (posToSolo === currSoloState) {
                 // Fade in
                 if (posEmitter.getVolume() < 1.0) {
-                    const vol = Math.min(1.0, posEmitter.getVolume() + (1.0 / 60.0))
+                    const vol = Math.min(1.0, posEmitter.getVolume() + 0.2)
                     posEmitter.setVolume(vol)
                 }
             } else {
                 // Fade out
                 if (posEmitter.getVolume() > 0.0) {
-                    const vol = Math.max(0.0, posEmitter.getVolume() - (1.0 / 60.0))
+                    const vol = Math.max(0.0, posEmitter.getVolume() - 0.2)
                     posEmitter.setVolume(vol)
                 }
             }
