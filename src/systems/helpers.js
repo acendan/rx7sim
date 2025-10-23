@@ -132,25 +132,26 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
     let domButton = null
     if (typeof document !== 'undefined') {
         domButton = document.createElement('button')
+        domButton.color = color
         domButton.className = 'three-linebutton'
         domButton.style.position = 'absolute'
         domButton.style.padding = '4px 12px'
         domButton.style.border = 'none'
         domButton.style.borderRadius = '12px'
         domButton.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`
-        domButton.style.color = '#000000ff'
+        domButton.style.color = '#272727ff'
         domButton.style.fontFamily = 'sans-serif'
         domButton.style.fontSize = '14px'
         domButton.style.cursor = 'pointer'
         domButton.style.transform = 'translate(-50%, -50%)'
-        domButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
+        domButton.style.boxShadow = '0 2px 2px rgba(255, 255, 255, 0.24)'
         domButton.style.userSelect = 'none'
         domButton.textContent = label
         document.body.appendChild(domButton)
 
         // Add hover effect
         domButton.addEventListener('mouseenter', () => {
-            domButton.style.backgroundColor = `#${Math.min(color * 1.2, 0xffffff).toString(16).padStart(6, '0')}`
+            domButton.style.backgroundColor = `#${Math.min(color * 3, 0xffffff).toString(16).padStart(6, '0')}`
         })
         domButton.addEventListener('mouseleave', () => {
             domButton.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`

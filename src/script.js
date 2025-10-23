@@ -11,9 +11,23 @@ const DriveState = {
     ACCEL: 'accel',
     DECEL: 'decel'
 }
-var driveState = DriveState.STOP;
+var driveState = DriveState.STOP
 
-import { particleSystem } from './systems/exhaust.js';
+const SoloState = {
+    NONE: 'none',
+    INTAKE: 'intake',
+    EXHAUST: 'exhaust',
+    INTERIOR: 'interior'
+}
+var soloState = SoloState.NONE
+
+const SoloBtnColors = {
+    INTAKE: 0x4e9eff,
+    EXHAUST: 0x9cff7f,
+    INTERIOR: 0xffe894
+}
+
+import { particleSystem } from './systems/exhaust.js'
 import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton } from './systems/helpers.js'
 
 /**
@@ -107,32 +121,63 @@ gltfLoader.load('./model/rx7/rx7.gltf',
         carGroup.add(gltfCar.scene)
         particleSystem.initialize()
 
-        // Line buttons anchored to screen corners and pointing to local car positions
-        let hoodBtn, exhaustBtn, driverBtn
-        hoodBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: 0x4e9eff })
-        exhaustBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.7, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: 0x9cff7f })
-        driverBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.1, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: 0xffe894 })
+        // Solo buttons
+        let intakeSoloBtn, exhaustSoloBtn, interiorSoloBtn
+        intakeSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: SoloBtnColors.INTAKE })
+        exhaustSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.7, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: SoloBtnColors.EXHAUST })
+        interiorSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.1, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: SoloBtnColors.INTERIOR })
 
             // Add lines to scene and store buttons for updates
-            ;[hoodBtn, exhaustBtn, driverBtn].forEach(btn => {
+            ;[intakeSoloBtn, exhaustSoloBtn, interiorSoloBtn].forEach(btn => {
                 scene.add(btn.line)
                 lineButtons.push(btn)
-                
-                // Add click handlers to DOM buttons
-                if (btn.button) {
-                    btn.button.addEventListener('click', () => {
-                        console.log('Clicked:', btn.button.textContent)
-                        // TODO: Add specific actions for each button
-                    })
-                }
+
+                // Solo button click event
+                btn.button.addEventListener('click', () => {
+                    console.log('Clicked:', btn.button.textContent)
+
+                    // Clicked same button again: reset to no solo
+                    if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
+                        soloState = SoloState.NONE
+
+                        // Reset all button styles
+                        lineButtons.forEach(otherBtn => {
+                            if (otherBtn !== btn) {
+                                otherBtn.button.style.backgroundColor = `#${SoloBtnColors[otherBtn.button.textContent.toUpperCase()].toString(16).padStart(6, '0')}`
+                                otherBtn.button.style.color = `#272727ff`
+                                otherBtn.line.visible = true
+                            }
+                        })
+
+                        // New solo button selected
+                    } else {
+                        soloState = SoloState[btn.button.textContent.toUpperCase()]
+
+                        // Darken background color of other buttons
+                        lineButtons.forEach(otherBtn => {
+                            if (otherBtn !== btn) {
+                                otherBtn.button.style.backgroundColor = `#444444`
+                                otherBtn.button.style.color = `#888888`
+                                otherBtn.line.visible = false
+                            } else {
+                                otherBtn.button.style.color = `#272727ff`
+                                otherBtn.line.visible = true
+                            }
+                        })
+                    }
+
+                    console.log('Solo State:', soloState)
+
+
+                })
             })
 
         // Line button visibility
-        const buttonVisibility = { 'Mic Perspective Btns': true }
-        dbgUtils.add(buttonVisibility, 'Mic Perspective Btns').onChange(visible => {
-            hoodBtn.setVisible(visible)
-            exhaustBtn.setVisible(visible)
-            driverBtn.setVisible(visible)
+        const buttonVisibility = { 'Mic Perspectives': true }
+        dbgUtils.add(buttonVisibility, 'Mic Perspectives').onChange(visible => {
+            intakeSoloBtn.setVisible(visible)
+            exhaustSoloBtn.setVisible(visible)
+            interiorSoloBtn.setVisible(visible)
         })
     }
 )
