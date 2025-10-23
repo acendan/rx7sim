@@ -28,6 +28,13 @@ scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
 // Debug
 const dbg = new dat.GUI()
 const dbgAudio = dbg.addFolder('Audio')
+let dbgAudioMeters = null
+let dbgAudioEmitters = null
+let dbgAudioMicPersp = null
+const dbgVehicle = dbg.addFolder('Vehicle')
+let dbgVehCarSelect = null
+let dbgVehIgnOn = null
+let dbgVehIgnOff = null
 
 // Axes
 // const axes = new THREE.AxesHelper(1)
@@ -174,7 +181,7 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
         // Line button visibility
         const buttonVisibility = { 'Mic Perspectives': true }
-        dbgAudio.add(buttonVisibility, 'Mic Perspectives').onChange(visible => {
+        dbgAudioMicPersp = dbgAudio.add(buttonVisibility, 'Mic Perspectives').onChange(visible => {
             intakeSoloBtn.setVisible(visible)
             exhaustSoloBtn.setVisible(visible)
             interiorSoloBtn.setVisible(visible)
@@ -438,8 +445,8 @@ const soundEngine = {
         anims.actTiresRot.play();
         anims.mixerWheels.timeScale = 0.01;
 
-        dbgEngineIgnOn.hide();
-        dbgEngineIgnOff.show();
+        dbgVehIgnOn.hide();
+        dbgVehIgnOff.show();
     },
 
     ignitionOff: () => {
@@ -459,8 +466,8 @@ const soundEngine = {
 
         driveState = DriveState.DECEL;
 
-        dbgEngineIgnOn.show();
-        dbgEngineIgnOff.hide();
+        dbgVehIgnOn.show();
+        dbgVehIgnOff.hide();
     },
 
     load() {
@@ -487,7 +494,7 @@ const dbgAudioSettings = {
     'Meters': true,
     'Emitters': false
 }
-dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
+dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
 
 // Create emitter position debuggers (initially hidden)
 const emitterDebuggers = new Map()
@@ -518,16 +525,17 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
 })
 
 // Add debug toggle for emitter position helpers
-dbgAudio.add(dbgAudioSettings, 'Emitters').onChange(v => {
+dbgAudioEmitters = dbgAudio.add(dbgAudioSettings, 'Emitters').onChange(v => {
     emitterDebuggers.forEach(helper => helper.visible = v)
 })
 
 /**
  * Debug
  */
-const dbgVehicle = dbg.addFolder('Vehicle')
-const dbgEngineIgnOn = dbgVehicle.add(soundEngine, 'ignitionOn').name('Ignition On')
-const dbgEngineIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').hide()
+const fakeListOfCars = ['Mazda RX-7 FD']
+dbgVehCarSelect = dbgVehicle.add({ car: fakeListOfCars[0] }, 'car', fakeListOfCars).name('Car').onChange(v => {})
+dbgVehIgnOn = dbgVehicle.add(soundEngine, 'ignitionOn').name('Ignition On')
+dbgVehIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').hide()
 
 /**
  * Main
