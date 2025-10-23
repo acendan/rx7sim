@@ -26,7 +26,7 @@ scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
 
 // Debug
 const dbg = new dat.GUI()
-const dbgUtils = dbg.addFolder('Utils')
+const dbgAudio = dbg.addFolder('Audio')
 
 // Axes
 // const axes = new THREE.AxesHelper(1)
@@ -154,7 +154,7 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
         // Line button visibility
         const buttonVisibility = { 'Mic Perspectives': true }
-        dbgUtils.add(buttonVisibility, 'Mic Perspectives').onChange(visible => {
+        dbgAudio.add(buttonVisibility, 'Mic Perspectives').onChange(visible => {
             intakeSoloBtn.setVisible(visible)
             exhaustSoloBtn.setVisible(visible)
             interiorSoloBtn.setVisible(visible)
@@ -426,12 +426,12 @@ const soundEngine = {
 soundEngine.load()
 
 
-// Create mixer panel (initially hidden)
+// Create meters panel
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 
 // Add debug toggle for meter visibility
-const audioDebug = { 'Audio Meters': true }
-dbgUtils.add(audioDebug, 'Audio Meters').onChange(v => audioMeters.setVisible(v))
+const audioDebug = { 'Meters': true }
+dbgAudio.add(audioDebug, 'Meters').onChange(v => audioMeters.setVisible(v))
 
 
 /**
