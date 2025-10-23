@@ -9,8 +9,8 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         panel.id = 'audio-volume-panel'
         Object.assign(panel.style, {
             position: 'fixed',
-            top: '10px',
-            left: '10px',
+            bottom: '10px', // Lower right corner
+            right: '10px',
             padding: '8px',
             background: 'rgba(0,0,0,0.6)',
             color: '#fff',
@@ -32,7 +32,8 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
             display: 'flex',
             alignItems: 'center',
             marginBottom: '6px',
-            pointerEvents: 'auto'
+            pointerEvents: 'auto',
+            flexDirection: 'row'
         })
 
         const label = document.createElement('div')
@@ -46,22 +47,24 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         const barContainer = document.createElement('div')
         barContainer.className = 'vol-bar-container'
         Object.assign(barContainer.style, {
-            width: '12px',
-            height: '64px',
+            width: '64px',
+            height: '12px',
             background: 'rgba(255,255,255,0.08)',
             borderRadius: '3px',
             display: 'flex',
-            alignItems: 'flex-end',
-            overflow: 'hidden'
+            alignItems: 'center',
+            overflow: 'hidden',
+            marginLeft: '8px',
+            marginRight: '8px'
         })
 
         const barInner = document.createElement('div')
         barInner.className = 'vol-bar'
         Object.assign(barInner.style, {
-            width: '100%',
-            height: '0%',
+            width: '0%',
+            height: '100%',
             background: '#4e9eff',
-            transition: 'height 0.08s linear'
+            transition: 'width 0.08s linear'
         })
 
         const value = document.createElement('div')
@@ -96,7 +99,7 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
             const volume = emitter && emitter.getVolume ? emitter.getVolume() : 0
             const barInner = row.querySelector('.vol-bar')
             const value = row.querySelector('.vol-value')
-            barInner.style.height = `${Math.max(0, Math.min(1, volume)) * 100}%`
+            barInner.style.width = `${Math.max(0, Math.min(1, volume)) * 100}%`
             value.textContent = `${Math.round(volume * 100)}%`
         })
         panel.style.display = visible ? '' : 'none'

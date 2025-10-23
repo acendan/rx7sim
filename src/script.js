@@ -106,9 +106,9 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
         // Solo buttons
         let intakeSoloBtn, exhaustSoloBtn, interiorSoloBtn
-        intakeSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: SoloBtnColors.INTAKE })
-        exhaustSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.7, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: SoloBtnColors.EXHAUST })
-        interiorSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.1, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: SoloBtnColors.INTERIOR })
+        intakeSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.6, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: SoloBtnColors.INTAKE })
+        exhaustSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.6, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: SoloBtnColors.EXHAUST })
+        interiorSoloBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.0, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: SoloBtnColors.INTERIOR })
 
             // Add lines to scene and store buttons for updates
             ;[intakeSoloBtn, exhaustSoloBtn, interiorSoloBtn].forEach(btn => {
@@ -427,10 +427,10 @@ soundEngine.load()
 
 
 // Create mixer panel (initially hidden)
-const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: false })
+const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 
 // Add debug toggle for meter visibility
-const audioDebug = { 'Audio Meters': false }
+const audioDebug = { 'Audio Meters': true }
 dbgUtils.add(audioDebug, 'Audio Meters').onChange(v => audioMeters.setVisible(v))
 
 
