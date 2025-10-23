@@ -307,6 +307,11 @@ const audioEmitters = {
     interior: new THREE.PositionalAudio(listener)
 };
 
+// Set initial volumes based on default soloState (MIX)
+Object.entries(audioEmitters).forEach(([pos, emitter]) => {
+    emitter.setVolume(pos === 'mix' ? 1.0 : 0.0);
+});
+
 // Add emitters to car at appropriate positions
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     carGroup.add(emitter);
@@ -416,11 +421,6 @@ const soundEngine = {
                 (buffer) => { engine.buffers[pos].idle = buffer });
             audioLoader.load(`./audio/${pos}/ignition_off.ogg`,
                 (buffer) => { engine.buffers[pos].ignitionOff = buffer });
-        });
-
-        // 0 out all emitter volumes initially
-        Object.values(audioEmitters).forEach(emitter => {
-            emitter.setVolume(0.0);
         });
     }
 }
