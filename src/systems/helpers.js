@@ -85,7 +85,7 @@ export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distan
  * @param {Number|null} [opts.volume=null] - optional volume to set (0..1)
  * @param {Function|null} [opts.onEnded=null] - optional onEnded callback to set on emitter
  */
-export function playPositionalAudio(audioLoader, emitter, path, { store = null, storeKey = null, loop = false, refDistance = 20, volume = null, onEnded = null } = {}) {
+export function playPositionalAudio(audioLoader, emitter, path, { store = null, storeKey = null, loop = false, refDistance = 20, volume = null, offset = 0, onEnded = null } = {}) {
     const playBuffer = (buffer) => {
         try {
             emitter.stop()

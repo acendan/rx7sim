@@ -149,8 +149,8 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                             }
                         })
 
-                        // New solo button selected
                     } else {
+                        // New solo button selected
                         soloState = SoloState[btn.button.textContent.toUpperCase()]
 
                         // Darken background color of other buttons
@@ -166,8 +166,24 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                         })
                     }
 
-                    console.log('Solo State:', soloState)
-
+                    // #TODO: Handle audio solo state changes
+                    switch (soloState) {
+                        case SoloState.NONE:
+                            // Play current sound in ./audio/mix/ with emitter offset to match current playback
+                            break
+                        case SoloState.INTAKE:
+                            // Play intake sound in ./audio/intake/
+                            break
+                        case SoloState.EXHAUST:
+                            // Play exhaust sound in ./audio/exhaust/
+                            break
+                        case SoloState.INTERIOR:
+                            // Play interior sound in ./audio/interior/
+                            break
+                        default:
+                            // Do nothing
+                            break
+                    }
 
                 })
             })
@@ -329,11 +345,11 @@ const soundEngine = {
     ignitionIdleBuffer: null,
     ignitionOffBuffer: null,
     ignitionOn: () => {
-        playPositionalAudio(audioLoader, emitter, './audio/ignition_on.ogg', {
+        playPositionalAudio(audioLoader, emitter, './audio/mix/ignition_on.ogg', {
             store: soundEngine, storeKey: 'ignitionOnBuffer', loop: false,
             onEnded: () => {
                 // After ignition sound ends, start engine idle loop
-                playPositionalAudio(audioLoader, emitter, './audio/idle.ogg', { store: soundEngine, storeKey: 'ignitionIdleBuffer', loop: true })
+                playPositionalAudio(audioLoader, emitter, './audio/mix/idle.ogg', { store: soundEngine, storeKey: 'ignitionIdleBuffer', loop: true })
             }
         })
 
@@ -345,7 +361,7 @@ const soundEngine = {
     },
 
     ignitionOff: () => {
-        playPositionalAudio(audioLoader, emitter, './audio/ignition_off.ogg', {
+        playPositionalAudio(audioLoader, emitter, './audio/mix/ignition_off.ogg', {
             store: soundEngine, storeKey: 'ignitionOffBuffer', loop: false,
             onEnded: () => {
                 emitter.stop()
@@ -356,9 +372,9 @@ const soundEngine = {
 
     load: () => {
         // Cache buffers on startup for seamless playback
-        audioLoader.load('./audio/ignition_on.ogg', (buffer) => { soundEngine.ignitionOnBuffer = buffer });
-        audioLoader.load('./audio/idle.ogg', (buffer) => { soundEngine.ignitionIdleBuffer = buffer });
-        audioLoader.load('./audio/ignition_off.ogg', (buffer) => { soundEngine.ignitionOffBuffer = buffer });
+        audioLoader.load('./audio/mix/ignition_on.ogg', (buffer) => { soundEngine.ignitionOnBuffer = buffer });
+        audioLoader.load('./audio/mix/idle.ogg', (buffer) => { soundEngine.ignitionIdleBuffer = buffer });
+        audioLoader.load('./audio/mix/ignition_off.ogg', (buffer) => { soundEngine.ignitionOffBuffer = buffer });
     }
 }
 soundEngine.load()
