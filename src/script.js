@@ -334,6 +334,8 @@ const audioEmitters = {
     interior: new THREE.PositionalAudio(listener)
 };
 
+console.log("Audio Emitters:", audioEmitters);
+
 // Add emitters to car at appropriate positions & starting volume
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     carGroup.add(emitter);
@@ -481,6 +483,17 @@ const soundEngine = {
                 console.log(`Loaded Audio - ${pos}: ${key}`);
             });
         });
+    },
+
+    applyConvolutionReverb(reverbBuffer) {
+        Object.values(audioEmitters).forEach(emitter => {
+            const convolver = listener.context.createConvolver();
+            convolver.buffer = reverbBuffer;
+            emitter.setFilter(convolver);
+
+            // Set filter mix to 0.5 for a balanced effect
+            console.log(emitter)
+        });
     }
 }
 soundEngine.load()
@@ -495,6 +508,24 @@ const dbgAudioSettings = {
     'Emitters': false
 }
 dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
+
+// Add button to apply convolution reverb to all emitters
+const reverbMap = {
+    'Parking Garage': './audio/ir/parkingGarage.ogg'
+}
+dbgAudio.add({ Reverb: 'None' }, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Reverb').onChange(name => {
+    if (name === 'None') {
+        // remove any convolution filter
+        Object.values(audioEmitters).forEach(em => em.setFilter(null))
+        return
+    }
+    const path = reverbMap[name]
+    if (!path) return
+    const reverbLoader = new THREE.AudioLoader()
+    reverbLoader.load(path, (buffer) => {
+        soundEngine.applyConvolutionReverb(buffer)
+    })
+})
 
 // Create emitter position debuggers (initially hidden)
 const emitterDebuggers = new Map()
