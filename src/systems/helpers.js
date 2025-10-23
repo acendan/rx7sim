@@ -133,6 +133,7 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
     if (typeof document !== 'undefined') {
         domButton = document.createElement('button')
         domButton.color = color
+        domButton.dimmed = false
         domButton.className = 'three-linebutton'
         domButton.style.position = 'absolute'
         domButton.style.padding = '4px 12px'
@@ -151,10 +152,10 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
 
         // Add hover effect
         domButton.addEventListener('mouseenter', () => {
-            domButton.style.backgroundColor = `#${Math.min(color * 3, 0xffffff).toString(16).padStart(6, '0')}`
+            domButton.style.backgroundColor = `#${Math.min(color * 4, 0xffffff).toString(16).padStart(6, '0')}`
         })
         domButton.addEventListener('mouseleave', () => {
-            domButton.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`
+            domButton.style.backgroundColor = domButton.dimmed ? `#444444` : `#${color.toString(16).padStart(6, '0')}`
         })
     }
 

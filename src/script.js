@@ -127,6 +127,7 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                                 otherBtn.button.style.backgroundColor = `#${SoloBtnColors[otherBtn.button.textContent.toUpperCase()].toString(16).padStart(6, '0')}`
                                 otherBtn.button.style.color = `#272727ff`
                                 otherBtn.line.visible = true
+                                otherBtn.button.dimmed = false
                             }
                         })
 
@@ -140,9 +141,11 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                                 otherBtn.button.style.backgroundColor = `#444444`
                                 otherBtn.button.style.color = `#888888`
                                 otherBtn.line.visible = false
+                                otherBtn.button.dimmed = true
                             } else {
                                 otherBtn.button.style.color = `#272727ff`
                                 otherBtn.line.visible = true
+                                otherBtn.button.dimmed = false
                             }
                         })
                     }
