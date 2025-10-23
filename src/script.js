@@ -65,24 +65,6 @@ carGroup.add(particleSystem.getMesh())
 
 // Line buttons: will be created after car model loads; store them here
 const lineButtons = []
-const clickableMeshes = []
-
-// Raycaster and pointer for click handling
-const pointer = new THREE.Vector2()
-const clickRaycaster = new THREE.Raycaster()
-
-function onPointerDown(event) {
-    // Translate pointer to NDC
-    const rect = renderer.domElement.getBoundingClientRect()
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-    pointer.y = - ((event.clientY - rect.top) / rect.height) * 2 + 1
-    clickRaycaster.setFromCamera(pointer, camera)
-    const intersects = clickRaycaster.intersectObjects(clickableMeshes, true)
-    if (intersects.length > 0) {
-        const m = intersects[0].object
-        console.log('Line button clicked:', m.userData._lineButtonLabel || m.name || m.id)
-    }
-}
 
 // Animation mixers and actions
 let anims = {
@@ -127,15 +109,22 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
         // Line buttons anchored to screen corners and pointing to local car positions
         let hoodBtn, exhaustBtn, driverBtn
-        hoodBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: 0x449edd })
-        exhaustBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.8, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: 0x9cff7f })
-        driverBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.2, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: 0xffe894 })
+        hoodBtn = createLineButton({ screenAnchor: new THREE.Vector2(-0.5, -0.8), targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), targetObject: gltfCar.scene, label: 'Intake', color: 0x4e9eff })
+        exhaustBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.7, -0.8), targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), targetObject: gltfCar.scene, label: 'Exhaust', color: 0x9cff7f })
+        driverBtn = createLineButton({ screenAnchor: new THREE.Vector2(0.1, -0.8), targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), targetObject: gltfCar.scene, label: 'Interior', color: 0xffe894 })
 
-            // Add their groups to scene and register clickable meshes
+            // Add lines to scene and store buttons for updates
             ;[hoodBtn, exhaustBtn, driverBtn].forEach(btn => {
-                scene.add(btn.group)
+                scene.add(btn.line)
                 lineButtons.push(btn)
-                clickableMeshes.push(btn.getClickable())
+                
+                // Add click handlers to DOM buttons
+                if (btn.button) {
+                    btn.button.addEventListener('click', () => {
+                        console.log('Clicked:', btn.button.textContent)
+                        // TODO: Add specific actions for each button
+                    })
+                }
             })
 
         // Line button visibility
@@ -278,9 +267,6 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-// Pointer events for clickable line buttons
-renderer.domElement.addEventListener('pointerdown', onPointerDown)
 
 /**
  * Audio

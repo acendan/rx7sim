@@ -118,42 +118,43 @@ export function playPositionalAudio(audioLoader, emitter, path, { store = null, 
  * - screenAnchor: NDC coordinates (x,y) in range [-1,1] for the fixed screen point (e.g. upper-left = [-0.9,0.9])
  * - targetLocalPos: THREE.Vector3 position in local space of the target object (e.g. point on car model)
  * - targetObject: THREE.Object3D that the local position belongs to (used to compute world position and raycast intersection)
- * Returns an object { group, buttonMesh, line, update(camera), getClickable() }
+ * Returns an object { line, button, update(camera), getClickable() }
  */
 export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), targetLocalPos = new THREE.Vector3(0, 0, 0), targetObject = null, label = 'btn', color = 0x00ff00 } = {}) {
-    // Group holding line and button
-    const group = new THREE.Group()
-
     // Line geometry (two points)
     const points = [new THREE.Vector3(), new THREE.Vector3()]
     const lineGeom = new THREE.BufferGeometry().setFromPoints(points)
     const lineMat = new THREE.LineBasicMaterial({ color: color })
     const line = new THREE.Line(lineGeom, lineMat)
-    group.add(line)
+    line.set
 
-    // Button mesh at the vehicle end: small sphere
-    const btnGeom = new THREE.SphereGeometry(0.01, 12, 8)
-    const btnMat = new THREE.MeshBasicMaterial({ color: color })
-    const buttonMesh = new THREE.Mesh(btnGeom, btnMat)
-    buttonMesh.userData._lineButtonLabel = label
-    group.add(buttonMesh)
-
-    // Create a 2D DOM label that will be positioned in screen space
-    let domLabel = null
+    // Create a DOM button that will be positioned at the line's start point
+    let domButton = null
     if (typeof document !== 'undefined') {
-        domLabel = document.createElement('div')
-        domLabel.className = 'three-linebutton-label'
-        domLabel.style.position = 'absolute'
-        domLabel.style.pointerEvents = 'none'
-        domLabel.style.whiteSpace = 'nowrap'
-        domLabel.style.transform = 'translate(-50%, 0)'
-        domLabel.style.color = '#ffffff'
-        domLabel.style.fontFamily = 'sans-serif'
-        domLabel.style.fontSize = '18px'
-        domLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)'
-        domLabel.style.userSelect = 'none'
-        domLabel.textContent = label
-        document.body.appendChild(domLabel)
+        domButton = document.createElement('button')
+        domButton.className = 'three-linebutton'
+        domButton.style.position = 'absolute'
+        domButton.style.padding = '4px 12px'
+        domButton.style.border = 'none'
+        domButton.style.borderRadius = '12px'
+        domButton.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`
+        domButton.style.color = '#000000ff'
+        domButton.style.fontFamily = 'sans-serif'
+        domButton.style.fontSize = '14px'
+        domButton.style.cursor = 'pointer'
+        domButton.style.transform = 'translate(-50%, -50%)'
+        domButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
+        domButton.style.userSelect = 'none'
+        domButton.textContent = label
+        document.body.appendChild(domButton)
+
+        // Add hover effect
+        domButton.addEventListener('mouseenter', () => {
+            domButton.style.backgroundColor = `#${Math.min(color * 1.2, 0xffffff).toString(16).padStart(6, '0')}`
+        })
+        domButton.addEventListener('mouseleave', () => {
+            domButton.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`
+        })
     }
 
     // Raycaster used internally to find intersection point on targetObject
@@ -200,51 +201,39 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         posAttr.setXYZ(1, endPoint.x, endPoint.y, endPoint.z)
         posAttr.needsUpdate = true
 
-        // Position the button at the start point and face it to camera
-        buttonMesh.position.copy(startPoint)
-        buttonMesh.lookAt(camera.position)
-
-        // Update DOM label position so it behaves like 2D text at screen position
-        if (domLabel) {
-            // If not visible, ensure label is hidden
-            if (!isVisible) {
-                domLabel.style.display = 'none'
-                return
-            }
-
+        // Update DOM button position at the line's start point
+        if (domButton) {
             const proj = startPoint.clone().project(camera)
             // Hide if behind camera or offscreen
-            if (proj.z > 1 || proj.z < -1 || proj.x < -1.2 || proj.x > 1.2 || proj.y < -1.2 || proj.y > 1.2) {
-                domLabel.style.display = 'none'
+            if (!isVisible || proj.z > 1 || proj.z < -1 || proj.x < -1.2 || proj.x > 1.2 || proj.y < -1.2 || proj.y > 1.2) {
+                domButton.style.display = 'none'
             } else {
-                domLabel.style.display = ''
+                domButton.style.display = ''
                 const canvas = document.querySelector('canvas.webgl')
                 if (canvas) {
                     const rect = canvas.getBoundingClientRect()
                     const x = (proj.x * 0.5 + 0.5) * rect.width + rect.left
-                    const y = (-proj.y * 0.5 + 0.51) * rect.height + rect.top
-                    domLabel.style.left = `${x}px`
-                    domLabel.style.top = `${y + 8}px`
+                    const y = (-proj.y * 0.5 + 0.5) * rect.height + rect.top
+                    domButton.style.left = `${x}px`
+                    domButton.style.top = `${y}px`
                 }
             }
         }
     }
 
-    // Toggle visibility of both 3D elements and DOM label
+    // Toggle visibility of both line and DOM button
     function setVisible(visible) {
         isVisible = visible
-        group.visible = visible
-        if (domLabel) {
-            domLabel.style.display = visible ? '' : 'none'
+        line.visible = visible
+        if (domButton) {
+            domButton.style.display = visible ? '' : 'none'
         }
     }
 
     return {
-        group,
-        buttonMesh,
         line,
+        button: domButton,
         update,
-        getClickable: () => buttonMesh,
         setVisible
     }
 }
