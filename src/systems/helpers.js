@@ -160,6 +160,8 @@ export function playPositionalAudio(audioLoader, emitter, path, { store = null, 
     }
 
     audioLoader.load(path, (buffer) => {
+        console.log(`Loaded Audio - ${pos}: ${key}`)
+        
         if (store && storeKey) store[storeKey] = buffer
         playBuffer(buffer)
     })

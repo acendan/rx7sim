@@ -311,7 +311,7 @@ const audioEmitters = {
 // Add emitters to car at appropriate positions & starting volume
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     carGroup.add(emitter);
-    switch(pos) {
+    switch (pos) {
         case 'intake':
             emitter.position.set(0, 0.2, 2.1); // Front of car
             emitter.setVolume(0);
@@ -337,7 +337,7 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
 const soundEngine = {
     // Buffer storage per position
     buffers: {
-        mix: { ignitionOn: null, idle: null, ignitionOff: null },
+        mix: {},
         intake: { ignitionOn: null, idle: null, ignitionOff: null },
         exhaust: { ignitionOn: null, idle: null, ignitionOff: null },
         interior: { ignitionOn: null, idle: null, ignitionOff: null }
@@ -349,17 +349,17 @@ const soundEngine = {
     setEmitterVolumes(currSoloState) {
         // Get individual emitters (excluding mix)
         const individualEmitters = ['intake', 'exhaust', 'interior'];
-        
+
         individualEmitters.forEach(pos => {
             const emitter = audioEmitters[pos];
             if (!emitter) return;
 
             // Base target volume (before global multiplier)
-            const baseTarget = (currSoloState === SoloState.MIX) 
-                                ? EmitterVolMults.MIX 
-                                : (pos === currSoloState)
-                                    ? 1.0
-                                    : 0.0;
+            const baseTarget = (currSoloState === SoloState.MIX)
+                ? EmitterVolMults.MIX
+                : (pos === currSoloState)
+                    ? 1.0
+                    : 0.0;
 
             // Apply global multiplier
             const multiplier = EmitterVolMults[pos.toUpperCase()] !== undefined ? EmitterVolMults[pos.toUpperCase()] : 1.0
@@ -381,8 +381,10 @@ const soundEngine = {
     ignitionOn: () => {
         // Start ignition for all positions
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignition_on.ogg`, {
-                store: soundEngine.buffers[pos], 
+            if (pos === 'mix') return; // No ignition sound for mix
+
+            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignitionOn.ogg`, {
+                store: soundEngine.buffers[pos],
                 storeKey: 'ignitionOn',
                 loop: false,
                 onEnded: () => {
@@ -391,7 +393,7 @@ const soundEngine = {
                         store: soundEngine.buffers[pos],
                         storeKey: 'idle',
                         loop: true,
-                        onEnded: () => {}
+                        onEnded: () => { }
                     });
                 }
             });
@@ -410,7 +412,9 @@ const soundEngine = {
     ignitionOff: () => {
         // Play ignition off for all positions
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignition_off.ogg`, {
+            if (pos === 'mix') return; // No ignition sound for mix
+
+            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignitionOff.ogg`, {
                 store: soundEngine.buffers[pos],
                 storeKey: 'ignitionOff',
                 loop: false,
@@ -430,12 +434,12 @@ const soundEngine = {
         // Cache buffers for all positions
         const engine = this; // Store reference to soundEngine
         Object.keys(engine.buffers).forEach(pos => {
-            audioLoader.load(`./audio/${pos}/ignition_on.ogg`, 
-                (buffer) => { engine.buffers[pos].ignitionOn = buffer });
-            audioLoader.load(`./audio/${pos}/idle.ogg`,
-                (buffer) => { engine.buffers[pos].idle = buffer });
-            audioLoader.load(`./audio/${pos}/ignition_off.ogg`,
-                (buffer) => { engine.buffers[pos].ignitionOff = buffer });
+            Object.keys(engine.buffers[pos]).forEach(key => {
+                audioLoader.load(`./audio/${pos}/${key}.ogg`,
+                    (buffer) => { engine.buffers[pos][key] = buffer });
+
+                console.log(`Loaded Audio - ${pos}: ${key}`);
+            });
         });
     }
 }
@@ -446,16 +450,16 @@ soundEngine.load()
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 
 // Add debug toggles for audio visualization
-const audioDebug = { 
+const audioDebug = {
     'Meters': true,
-    'Emitter Positions': false 
+    'Emitter Positions': false
 }
 dbgAudio.add(audioDebug, 'Meters').onChange(v => audioMeters.setVisible(v))
 
 // Create emitter position debuggers (initially hidden)
 const emitterDebuggers = new Map()
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-    const helper = createAudioEmitterDebugger(emitter, { 
+    const helper = createAudioEmitterDebugger(emitter, {
         color: SoloBtnColors[pos.toUpperCase()] || 0xffff00,
         size: 0.15
     })
