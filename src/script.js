@@ -29,10 +29,10 @@ const dbg = new dat.GUI()
 const dbgUtils = dbg.addFolder('Utils')
 
 // Axes
-const axes = new THREE.AxesHelper(1)
-axes.visible = false
-scene.add(axes)
-dbgUtils.add(axes, 'visible').name('Axes')
+// const axes = new THREE.AxesHelper(1)
+// axes.visible = false
+// scene.add(axes)
+// dbgUtils.add(axes, 'visible').name('Axes')
 
 // Loaders
 const gltfLoader = new GLTFLoader()
@@ -120,6 +120,8 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                     // Clicked same button again: reset to no solo
                     if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
                         soloState = SoloState.MIX
+
+                        console.log('Reset to MIX')
 
                         // Reset all button styles
                         lineButtons.forEach(otherBtn => {
@@ -340,25 +342,24 @@ const soundEngine = {
     // Track current active emitter for smooth transitions
     currentEmitter: null,
 
-    setEmitterVolumes(activePosition) {
-        const positions = Object.keys(this.buffers);
-        positions.forEach(pos => {
-            const emitter = audioEmitters[pos];
-            const shouldBePlaying = pos === activePosition || (activePosition === SoloState.MIX && pos === 'mix');
+    setEmitterVolumes(currSoloState) {
+        const soloStates = Object.values(SoloState)
+        soloStates.forEach(posToSolo => {
+            const posEmitter = audioEmitters[posToSolo]
+            if (!posEmitter) return // skip unknown positions
 
             // Handle volume transitions
-            if (shouldBePlaying) {
+            if (posToSolo === currSoloState) {
                 // Fade in
-                if (emitter.getVolume() < 1.0) {
-                    const vol = Math.min(1.0, emitter.getVolume() + (1.0 / 60.0));
-                    emitter.setVolume(vol);
+                if (posEmitter.getVolume() < 1.0) {
+                    const vol = Math.min(1.0, posEmitter.getVolume() + (1.0 / 60.0))
+                    posEmitter.setVolume(vol)
                 }
             } else {
                 // Fade out
-                if (emitter.getVolume() > 0.0) {
-                    const vol = Math.max(0.0, emitter.getVolume() - (1.0 / 60.0));
-                    emitter.setVolume(vol);
-                    if (vol <= 0.0) emitter.stop();
+                if (posEmitter.getVolume() > 0.0) {
+                    const vol = Math.max(0.0, posEmitter.getVolume() - (1.0 / 60.0))
+                    posEmitter.setVolume(vol)
                 }
             }
         });
@@ -430,9 +431,8 @@ soundEngine.load()
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: false })
 
 // Add debug toggle for meter visibility
-const dbgAudio = dbg.addFolder('Audio')
-const audioDebug = { 'Show Meters': false }
-dbgAudio.add(audioDebug, 'Show Meters').onChange(v => audioMeters.setVisible(v))
+const audioDebug = { 'Audio Meters': false }
+dbgUtils.add(audioDebug, 'Audio Meters').onChange(v => audioMeters.setVisible(v))
 
 
 /**

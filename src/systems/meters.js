@@ -75,7 +75,7 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
 
         if (pos === 'exhaust') barInner.style.background = '#9cff7f'
         if (pos === 'interior') barInner.style.background = '#ffe894'
-        if (pos === 'mix') barInner.style.background = '#4e9eff'
+        if (pos === 'mix') barInner.style.background = '#a056aaff'
 
         barContainer.appendChild(barInner)
         row.appendChild(label)
