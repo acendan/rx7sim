@@ -19,8 +19,17 @@ export const SoloBtnColors = {
     INTERIOR: 0xffe894
 }
 
+// Global per-emitter volume multipliers (useful for balancing perspectives)
+export const EmitterVolMults = {
+    MIX: 0.8,       // Applied to each individually during mix solo state
+    INTAKE: 0.5,
+    EXHAUST: 0.8,
+    INTERIOR: 0.6
+}
+
 export default {
     DriveState,
     SoloState,
-    SoloBtnColors
+    SoloBtnColors,
+    EmitterVolMults
 }

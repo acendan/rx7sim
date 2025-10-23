@@ -110,6 +110,9 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
     function update() {
         const p = ensurePanel()
         Object.entries(emitters).forEach(([pos, emitter]) => {
+            // Disabling mix row, as now just using separate assets for mix
+            if (pos === 'mix') return
+            
             let row = p.querySelector(`[data-pos="${pos}"]`)
             if (!row) {
                 row = buildRow(pos)

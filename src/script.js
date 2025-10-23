@@ -5,7 +5,7 @@ import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
 
-import { DriveState, SoloState, SoloBtnColors } from './systems/constants.js'
+import { DriveState, SoloState, SoloBtnColors, EmitterVolMults } from './systems/constants.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
 
@@ -346,26 +346,35 @@ const soundEngine = {
     currentEmitter: null,
 
     setEmitterVolumes(currSoloState) {
-        const soloStates = Object.values(SoloState)
-        soloStates.forEach(posToSolo => {
-            const posEmitter = audioEmitters[posToSolo]
-            if (!posEmitter) return // skip unknown positions
+        // Get individual emitters (excluding mix)
+        const individualEmitters = ['intake', 'exhaust', 'interior'];
+        
+        individualEmitters.forEach(pos => {
+            const emitter = audioEmitters[pos];
+            if (!emitter) return;
 
-            // Handle volume transitions
-            if (posToSolo === currSoloState) {
-                // Fade in
-                if (posEmitter.getVolume() < 1.0) {
-                    const vol = Math.min(1.0, posEmitter.getVolume() + 0.2)
-                    posEmitter.setVolume(vol)
-                }
-            } else {
-                // Fade out
-                if (posEmitter.getVolume() > 0.0) {
-                    const vol = Math.max(0.0, posEmitter.getVolume() - 0.2)
-                    posEmitter.setVolume(vol)
-                }
+            // Base target volume (before global multiplier)
+            const baseTarget = (currSoloState === SoloState.MIX) 
+                                ? EmitterVolMults.MIX 
+                                : (pos === currSoloState)
+                                    ? 1.0
+                                    : 0.0;
+
+            // Apply global multiplier
+            const multiplier = EmitterVolMults[pos.toUpperCase()] !== undefined ? EmitterVolMults[pos.toUpperCase()] : 1.0
+            const targetVolume = Math.max(0, Math.min(1, baseTarget * multiplier))
+
+            // Smooth volume transition
+            const currentVol = emitter.getVolume();
+            if (currentVol < targetVolume) {
+                emitter.setVolume(Math.min(targetVolume, currentVol + 0.2));
+            } else if (currentVol > targetVolume) {
+                emitter.setVolume(Math.max(targetVolume, currentVol - 0.2));
             }
         });
+
+        // Always keep mix emitter silent as we're creating our own mix
+        audioEmitters.mix.setVolume(0);
     },
 
     ignitionOn: () => {
