@@ -1,7 +1,10 @@
+import * as THREE from 'three'
+
 // Minimal portable mixer panel for showing emitter volumes
 export function createMixer({ emitters = {}, initialVisible = false } = {}) {
     let visible = initialVisible
     let panel = null
+    const analysers = new Map() // Store audio analysers for each emitter
 
     function ensurePanel() {
         if (panel) return panel
@@ -67,14 +70,14 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
             transition: 'width 0.08s linear'
         })
 
-        const value = document.createElement('div')
-        value.className = 'vol-value'
-        Object.assign(value.style, {
-            marginLeft: '8px',
-            minWidth: '36px',
-            textAlign: 'right'
-        })
-        value.textContent = '0%'
+        // const value = document.createElement('div')
+        // value.className = 'vol-value'
+        // Object.assign(value.style, {
+        //     marginLeft: '8px',
+        //     minWidth: '36px',
+        //     textAlign: 'right'
+        // })
+        // value.textContent = '0%'
 
         if (pos === 'exhaust') barInner.style.background = '#9cff7f'
         if (pos === 'interior') barInner.style.background = '#ffe894'
@@ -83,8 +86,25 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         barContainer.appendChild(barInner)
         row.appendChild(label)
         row.appendChild(barContainer)
-        row.appendChild(value)
+        // row.appendChild(value)
         return row
+    }
+
+    function ensureAnalyser(pos, emitter) {
+        if (!analysers.has(pos) && emitter?.getOutput()) {
+            const analyser = new THREE.AudioAnalyser(emitter, 32)
+            analysers.set(pos, analyser)
+        }
+        return analysers.get(pos)
+    }
+
+    function getEmitterVolume(pos, emitter) {
+        const analyser = ensureAnalyser(pos, emitter)
+        if (!analyser) return 0
+
+        const volume = analyser.getAverageFrequency() / 255 // Normalize to 0-1
+        const soloScaling = emitter && emitter.getVolume ? emitter.getVolume() : 0
+        return volume * soloScaling
     }
 
     function update() {
@@ -96,11 +116,12 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
                 p.appendChild(row)
             }
 
-            const volume = emitter && emitter.getVolume ? emitter.getVolume() : 0
+            const volume = getEmitterVolume(pos, emitter) * 3
             const barInner = row.querySelector('.vol-bar')
-            const value = row.querySelector('.vol-value')
             barInner.style.width = `${Math.max(0, Math.min(1, volume)) * 100}%`
-            value.textContent = `${Math.round(volume * 100)}%`
+            
+            // const value = row.querySelector('.vol-value')
+            // value.textContent = `${Math.round(volume * 100)}%`
         })
         panel.style.display = visible ? '' : 'none'
     }
