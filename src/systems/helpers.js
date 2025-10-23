@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ConeEmitterSettings } from './constants.js'
 // Note: colorToHex is defined below; forward usage inside file is fine.
 
 /**
@@ -59,25 +60,62 @@ export function colorToHex(c) {
  * @param {Object} opts - options
  * @param {number} opts.size - Size of the helper
  * @param {number} opts.color - Color of the helper
+ * @param {boolean} opts.showCone - If true, show a cone instead of sphere (for directional audio)
+ * @param {number} opts.coneAngle - Cone angle in degrees (if showCone is true, defaults to ConeEmitterSettings.innerAngle)
+ * @param {THREE.Vector3} opts.coneDirection - Direction the cone points (if showCone is true)
  * @returns {THREE.Group} The helper object
  */
-export function createAudioEmitterDebugger(emitter, { size = 0.2, color = 0xffff00 } = {}) {
+export function createAudioEmitterDebugger(emitter, { size = 0.2, color = 0xffff00, showCone = false, coneAngle = ConeEmitterSettings.innerAngle, coneDirection = new THREE.Vector3(0, 0, 1) } = {}) {
     const helper = new THREE.Group()
     
-    // Sphere at emitter position
-    const geometry = new THREE.SphereGeometry(size)
-    const material = new THREE.MeshBasicMaterial({ 
-        color, 
-        wireframe: true,
-        transparent: true,
-        opacity: 0.8 
-    })
-    const sphere = new THREE.Mesh(geometry, material)
-    helper.add(sphere)
-
-    // Axes helper to show orientation
-    const axes = new THREE.AxesHelper(size * 1.5)
-    helper.add(axes)
+    if (showCone) {
+        // Create a cone geometry to visualize directional audio
+        const coneHeight = size * 3
+        const coneAngleRad = THREE.MathUtils.degToRad(coneAngle)
+        const coneRadius = Math.tan(coneAngleRad) * coneHeight
+        const geometry = new THREE.ConeGeometry(coneRadius, coneHeight, 16, 1, true)
+        const material = new THREE.MeshBasicMaterial({ 
+            color, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        })
+        const cone = new THREE.Mesh(geometry, material)
+        
+        // Rotate cone to point in the specified direction
+        // Default cone points along Y axis, we need to align it with coneDirection
+        const defaultDir = new THREE.Vector3(0, -1, 0)
+        const quaternion = new THREE.Quaternion()
+        quaternion.setFromUnitVectors(defaultDir, coneDirection.clone().normalize())
+        cone.quaternion.copy(quaternion)
+        
+        // Offset cone so its tip is at the emitter position
+        cone.position.copy(coneDirection.clone().normalize().multiplyScalar(coneHeight / 2))
+        
+        helper.add(cone)
+        
+        // Add a small sphere at the tip (emitter position)
+        const tipGeometry = new THREE.SphereGeometry(size * 0.3)
+        const tipMaterial = new THREE.MeshBasicMaterial({ 
+            color, 
+            transparent: true,
+            opacity: 0.9 
+        })
+        const tip = new THREE.Mesh(tipGeometry, tipMaterial)
+        helper.add(tip)
+    } else {
+        // Sphere at emitter position
+        const geometry = new THREE.SphereGeometry(size)
+        const material = new THREE.MeshBasicMaterial({ 
+            color, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0.8 
+        })
+        const sphere = new THREE.Mesh(geometry, material)
+        helper.add(sphere)
+    }
 
     // Match position to emitter
     helper.position.copy(emitter.position)

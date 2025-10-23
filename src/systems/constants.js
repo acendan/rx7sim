@@ -25,12 +25,19 @@ export const EmitterVolMults = {
     MIX: 0.8,       // Applied to each individually during mix solo state
     INTAKE: 0.5,
     EXHAUST: 0.8,
-    INTERIOR: 0.6
+    INTERIOR: 0.3
+}
+
+export const ConeEmitterSettings = {
+    innerAngle: 45.0, // degrees
+    outerAngle: 120.0, // degrees
+    outerGain: 0.3    // volume multiplier outside outer cone
 }
 
 export default {
     DriveState,
     SoloState,
     SoloBtnColors,
-    EmitterVolMults
+    EmitterVolMults,
+    ConeEmitterSettings
 }

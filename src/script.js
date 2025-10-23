@@ -5,7 +5,7 @@ import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
 
-import { DriveState, SoloState, SoloBtnColors, EmitterVolMults } from './systems/constants.js'
+import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings } from './systems/constants.js'
 import { colorToHex } from './systems/helpers.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
@@ -132,6 +132,11 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                             }
                         })
 
+                        // If emitter debuggers are visible, ensure emitterDebuggers are all visible
+                        if (dbgAudioSettings['Emitters']) {
+                            emitterDebuggers.forEach(helper => helper.visible = true)
+                        }
+
                     } else {
                         // New solo button selected
                         soloState = SoloState[btn.button.textContent.toUpperCase()]
@@ -143,10 +148,24 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                                 otherBtn.button.style.color = `#888888`
                                 otherBtn.line.visible = false
                                 otherBtn.button.dimmed = true
+
+                                // If emitter debuggers are visible, hide non-solo emitter debuggers
+                                if (dbgAudioSettings['Emitters']) {
+                                    const posKey = otherBtn.button.textContent.toLowerCase()
+                                    const helper = emitterDebuggers.get(posKey)
+                                    if (helper) helper.visible = false
+                                }
                             } else {
                                 otherBtn.button.style.color = `#272727ff`
                                 otherBtn.line.visible = true
                                 otherBtn.button.dimmed = false
+
+                                // If emitter debuggers are visible, ensure this one is visible
+                                if (dbgAudioSettings['Emitters']) {
+                                    const posKey = otherBtn.button.textContent.toLowerCase()
+                                    const helper = emitterDebuggers.get(posKey)
+                                    if (helper) helper.visible = true
+                                }
                             }
                         })
                     }
@@ -315,13 +334,27 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
         case 'intake':
             emitter.position.set(0, 0.2, 2.1); // Front of car
             emitter.setVolume(0);
+            // Point intake sound forward (along +Z axis)
+            emitter.setDirectionalCone(
+                THREE.MathUtils.degToRad(ConeEmitterSettings.innerAngle), 
+                THREE.MathUtils.degToRad(ConeEmitterSettings.outerAngle), 
+                ConeEmitterSettings.outerGain
+            );
             break;
         case 'exhaust':
             emitter.position.set(-0.5, 0.3, -2.0); // Rear of car
             emitter.setVolume(0);
+            // Point exhaust sound backward (along -Z axis)
+            // Rotate the emitter 180 degrees around Y axis to point backward
+            emitter.rotation.y = Math.PI;
+            emitter.setDirectionalCone(
+                THREE.MathUtils.degToRad(ConeEmitterSettings.innerAngle), 
+                THREE.MathUtils.degToRad(ConeEmitterSettings.outerAngle), 
+                ConeEmitterSettings.outerGain
+            );
             break;
         case 'interior':
-            emitter.position.set(0.0, 0.1, -0.2); // Inside car
+            emitter.position.set(0.0, 0.5, -0.2); // Inside car
             emitter.setVolume(0);
             break;
         case 'mix':
@@ -450,26 +483,42 @@ soundEngine.load()
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 
 // Add debug toggles for audio visualization
-const audioDebug = {
+const dbgAudioSettings = {
     'Meters': true,
-    'Emitter Positions': false
+    'Emitters': false
 }
-dbgAudio.add(audioDebug, 'Meters').onChange(v => audioMeters.setVisible(v))
+dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
 
 // Create emitter position debuggers (initially hidden)
 const emitterDebuggers = new Map()
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-    const helper = createAudioEmitterDebugger(emitter, {
+    if (pos === 'mix') return;
+    
+    // Configure helper based on emitter type
+    const helperConfig = {
         color: SoloBtnColors[pos.toUpperCase()] || 0xffff00,
-        size: 0.15
-    })
+        size: 0.4
+    }
+    
+    // Add cone visualization for directional emitters
+    if (pos === 'intake') {
+        helperConfig.showCone = true
+        helperConfig.coneAngle = ConeEmitterSettings.innerAngle
+        helperConfig.coneDirection = new THREE.Vector3(0, 0, 1) // Forward
+    } else if (pos === 'exhaust') {
+        helperConfig.showCone = true
+        helperConfig.coneAngle = ConeEmitterSettings.innerAngle
+        helperConfig.coneDirection = new THREE.Vector3(0, 0, -1) // Backward
+    }
+    
+    const helper = createAudioEmitterDebugger(emitter, helperConfig)
     helper.visible = false
     carGroup.add(helper)
     emitterDebuggers.set(pos, helper)
 })
 
 // Add debug toggle for emitter position helpers
-dbgAudio.add(audioDebug, 'Emitter Positions').onChange(v => {
+dbgAudio.add(dbgAudioSettings, 'Emitters').onChange(v => {
     emitterDebuggers.forEach(helper => helper.visible = v)
 })
 
