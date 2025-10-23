@@ -14,12 +14,12 @@ const DriveState = {
 var driveState = DriveState.STOP
 
 const SoloState = {
-    NONE: 'none',
+    MIX: 'mix',
     INTAKE: 'intake',
     EXHAUST: 'exhaust',
     INTERIOR: 'interior'
 }
-var soloState = SoloState.NONE
+var soloState = SoloState.MIX
 
 const SoloBtnColors = {
     INTAKE: 0x4e9eff,
@@ -138,7 +138,7 @@ gltfLoader.load('./model/rx7/rx7.gltf',
 
                     // Clicked same button again: reset to no solo
                     if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
-                        soloState = SoloState.NONE
+                        soloState = SoloState.MIX
 
                         // Reset all button styles
                         lineButtons.forEach(otherBtn => {
@@ -165,26 +165,6 @@ gltfLoader.load('./model/rx7/rx7.gltf',
                             }
                         })
                     }
-
-                    // #TODO: Handle audio solo state changes
-                    switch (soloState) {
-                        case SoloState.NONE:
-                            // Play current sound in ./audio/mix/ with emitter offset to match current playback
-                            break
-                        case SoloState.INTAKE:
-                            // Play intake sound in ./audio/intake/
-                            break
-                        case SoloState.EXHAUST:
-                            // Play exhaust sound in ./audio/exhaust/
-                            break
-                        case SoloState.INTERIOR:
-                            // Play interior sound in ./audio/interior/
-                            break
-                        default:
-                            // Do nothing
-                            break
-                    }
-
                 })
             })
 
@@ -336,45 +316,142 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-// Emitter
-const emitter = new THREE.PositionalAudio(listener);
-carGroup.add(emitter);
+// Audio emitters for each position
+const audioEmitters = {
+    mix: new THREE.PositionalAudio(listener),
+    intake: new THREE.PositionalAudio(listener),
+    exhaust: new THREE.PositionalAudio(listener),
+    interior: new THREE.PositionalAudio(listener)
+};
+
+// Add emitters to car at appropriate positions
+Object.entries(audioEmitters).forEach(([pos, emitter]) => {
+    carGroup.add(emitter);
+    // Position emitters relative to car model
+    switch(pos) {
+        case 'intake':
+            emitter.position.set(0, 0.2, 2.1); // Front of car
+            break;
+        case 'exhaust':
+            emitter.position.set(-0.5, 0.3, -2.0); // Rear of car
+            break;
+        case 'interior':
+            emitter.position.set(0.0, 0.1, -0.2); // Inside car
+            break;
+        case 'mix':
+            emitter.position.set(0, 0, 0); // Center for mix
+            break;
+        default:
+            emitter.position.set(0, 0, 0);
+            break;
+    }
+});
 
 const soundEngine = {
-    ignitionOnBuffer: null,
-    ignitionIdleBuffer: null,
-    ignitionOffBuffer: null,
-    ignitionOn: () => {
-        playPositionalAudio(audioLoader, emitter, './audio/mix/ignition_on.ogg', {
-            store: soundEngine, storeKey: 'ignitionOnBuffer', loop: false,
-            onEnded: () => {
-                // After ignition sound ends, start engine idle loop
-                playPositionalAudio(audioLoader, emitter, './audio/mix/idle.ogg', { store: soundEngine, storeKey: 'ignitionIdleBuffer', loop: true })
-            }
-        })
+    // Buffer storage per position
+    buffers: {
+        mix: { ignitionOn: null, idle: null, ignitionOff: null },
+        intake: { ignitionOn: null, idle: null, ignitionOff: null },
+        exhaust: { ignitionOn: null, idle: null, ignitionOff: null },
+        interior: { ignitionOn: null, idle: null, ignitionOff: null }
+    },
 
-        driveState = DriveState.ACCEL
-        anims.mixerWheels.stopAllAction()
-        anims.actWheelsRot.play()
-        anims.actTiresRot.play()
-        anims.mixerWheels.timeScale = 0.01
+    // Track current active emitter for smooth transitions
+    currentEmitter: null,
+
+    setEmitterVolumes(activePosition) {
+        const positions = Object.keys(this.buffers);
+        positions.forEach(pos => {
+            const emitter = audioEmitters[pos];
+            const shouldBePlaying = pos === activePosition || (activePosition === SoloState.MIX && pos === 'mix');
+
+            // Make sure the emitter is playing if it should be
+            if (shouldBePlaying && !emitter.isPlaying && this.buffers[pos].idle) {
+                playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
+                    store: this.buffers[pos],
+                    storeKey: 'idle',
+                    loop: true,
+                    volume: 0.0  // Start at 0 and fade in
+                });
+            }
+
+            // Handle volume transitions
+            if (shouldBePlaying) {
+                // Fade in
+                if (emitter.getVolume() < 1.0) {
+                    const vol = Math.min(1.0, emitter.getVolume() + (1.0 / 60.0));
+                    emitter.setVolume(vol);
+                }
+            } else {
+                // Fade out
+                if (emitter.getVolume() > 0.0) {
+                    const vol = Math.max(0.0, emitter.getVolume() - (1.0 / 60.0));
+                    emitter.setVolume(vol);
+                    if (vol <= 0.0) emitter.stop();
+                }
+            }
+        });
+    },
+
+    ignitionOn: () => {
+        // Start ignition for all positions
+        Object.entries(audioEmitters).forEach(([pos, emitter]) => {
+            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignition_on.ogg`, {
+                store: soundEngine.buffers[pos], 
+                storeKey: 'ignitionOn',
+                loop: false,
+                volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0,
+                onEnded: () => {
+                    // After ignition sound ends, start engine idle loop for this position
+                    playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
+                        store: soundEngine.buffers[pos],
+                        storeKey: 'idle',
+                        loop: true,
+                        volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0
+                    });
+                }
+            });
+        });
+
+        driveState = DriveState.ACCEL;
+        anims.mixerWheels.stopAllAction();
+        anims.actWheelsRot.play();
+        anims.actTiresRot.play();
+        anims.mixerWheels.timeScale = 0.01;
     },
 
     ignitionOff: () => {
-        playPositionalAudio(audioLoader, emitter, './audio/mix/ignition_off.ogg', {
-            store: soundEngine, storeKey: 'ignitionOffBuffer', loop: false,
-            onEnded: () => {
-                emitter.stop()
-            }
-        })
-        driveState = DriveState.DECEL
+        // Play ignition off for all positions
+        Object.entries(audioEmitters).forEach(([pos, emitter]) => {
+            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignition_off.ogg`, {
+                store: soundEngine.buffers[pos],
+                storeKey: 'ignitionOff',
+                loop: false,
+                volume: pos === 'mix' || pos === soloState ? 1.0 : 0.0,
+                onEnded: () => {
+                    emitter.stop();
+                }
+            });
+        });
+        driveState = DriveState.DECEL;
     },
 
-    load: () => {
-        // Cache buffers on startup for seamless playback
-        audioLoader.load('./audio/mix/ignition_on.ogg', (buffer) => { soundEngine.ignitionOnBuffer = buffer });
-        audioLoader.load('./audio/mix/idle.ogg', (buffer) => { soundEngine.ignitionIdleBuffer = buffer });
-        audioLoader.load('./audio/mix/ignition_off.ogg', (buffer) => { soundEngine.ignitionOffBuffer = buffer });
+    load() {
+        // Cache buffers for all positions
+        const engine = this; // Store reference to soundEngine
+        Object.keys(engine.buffers).forEach(pos => {
+            audioLoader.load(`./audio/${pos}/ignition_on.ogg`, 
+                (buffer) => { engine.buffers[pos].ignitionOn = buffer });
+            audioLoader.load(`./audio/${pos}/idle.ogg`,
+                (buffer) => { engine.buffers[pos].idle = buffer });
+            audioLoader.load(`./audio/${pos}/ignition_off.ogg`,
+                (buffer) => { engine.buffers[pos].ignitionOff = buffer });
+        });
+
+        // 0 out all emitter volumes initially
+        Object.values(audioEmitters).forEach(emitter => {
+            emitter.setVolume(0.0);
+        });
     }
 }
 soundEngine.load()
@@ -460,6 +537,11 @@ const tick = () => {
                 // Defensive: ignore update errors for now
             }
         })
+    }
+
+    // Update audio emitter volumes for smooth transitions
+    if (driveState !== DriveState.STOP) {
+        soundEngine.setEmitterVolumes(soloState)
     }
 
     // Render
