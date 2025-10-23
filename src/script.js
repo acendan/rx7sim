@@ -543,7 +543,7 @@ const reverbMap = {
     'Parking Garage': { path: './audio/ir/parkingGarage.ogg', blend: 0.6 }
 }
 const reverbParams = { Reverb: 'None' }
-dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Reverb').onChange(name => {
+dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Conv. Reverb').onChange(name => {
     if (name === 'None') {
         // Remove custom filter graph (disconnect reverb nodes)
         Object.values(audioEmitters).forEach(em => {
