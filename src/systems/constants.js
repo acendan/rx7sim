@@ -34,10 +34,22 @@ export const ConeEmitterSettings = {
     outerGain: 0.3    // volume multiplier outside outer cone
 }
 
+// Default lighting colors/intensities; central place to tweak base scene look
+export const LightingDefaults = {
+    ambient: { color: 0xffffff, intensity: 0.5 },
+    hemisphere: { skyColor: 0xffffff, groundColor: 0x8d8d8d, intensity: 0.4 },
+    directional: [
+        { color: 0xfeffed, intensity: 1.0 },
+        { color: 0xfff7f2, intensity: 1.0 },
+        { color: 0xf8feff, intensity: 0.2 }
+    ]
+}
+
 export default {
     DriveState,
     SoloState,
     SoloBtnColors,
     EmitterVolMults,
-    ConeEmitterSettings
+    ConeEmitterSettings,
+    LightingDefaults
 }

@@ -7,7 +7,7 @@ import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
 
-import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings } from './systems/constants.js'
+import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults } from './systems/constants.js'
 import { colorToHex } from './systems/helpers.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
@@ -77,9 +77,31 @@ scene.add(floor)
  */
 
 const hdris = {
-    'Underpass': { 
-        path: './hdri/underpass.hdr',
-        reverb: 'Parking Garage' // Optional: name of reverb preset to auto-select
+    'Garage': {
+        path: './hdri/garage.hdr',
+        reverb: 'Parking Garage',
+        lighting: {
+            ambient: { color: 0xf0f0f0, intensity: 0.2 },
+            hemisphere: { skyColor: 0xc0c0c0, groundColor: 0x3a3a3a, intensity: 0.15 },
+            directional: [
+                { color: 0xbcd4ff, intensity: 1.5 },
+                { color: 0xffddaa, intensity: 0.5 },
+                { color: 0x888888, intensity: 0.1 }
+            ]
+        }
+    },
+    'Track': {
+        path: './hdri/track.hdr',
+        reverb: 'Parking Garage',
+        lighting: {
+            ambient: { color: 0xfff693, intensity: 0.25 },
+            hemisphere: { skyColor: 0xcce6ff, groundColor: 0x5a5a5a, intensity: 0.15 },
+            directional: [
+                { color: 0xffffff, intensity: 0.1 },
+                { color: 0xfff2d1, intensity: 0.1 },
+                { color: 0xaaccff, intensity: 0.0 }
+            ]
+        }
     }
 }
 
@@ -99,6 +121,27 @@ dbg.add(hdrParams, 'HDR', hdrOptions).name('Level').onChange(name => {
         scene.background = originalBackground.clone ? originalBackground.clone() : originalBackground
         scene.environment = null
         floor.visible = true
+
+        // Reset lighting & atmospheric settings
+        applyLightingOverride(null)
+        if (scene.fog) {
+            scene.fog.color.set(0xefd1b5)
+            scene.fog.density = 0.05
+        }
+        if (typeof renderer.toneMappingExposure === 'number') renderer.toneMappingExposure = baseLightingSnapshot.exposure
+
+        // Force material refresh (remove stale env-dependent shader variants)
+        scene.traverse(obj => {
+            if (obj.isMesh && obj.material) {
+                if (Array.isArray(obj.material)) obj.material.forEach(m => m.needsUpdate = true)
+                else obj.material.needsUpdate = true
+            }
+        })
+
+        // Debug log comparison
+        console.log('[HDR Reset] Ambient', ambientLight.intensity, ambientLight.color.getHexString())
+        directionalLights.forEach((dl,i)=>console.log(`[HDR Reset] Dir${i}`, dl.intensity, dl.color.getHexString()))
+        console.log('[HDR Reset] Hemi', hemiLight.intensity, hemiLight.color.getHexString(), hemiLight.groundColor.getHexString())
 
         // Remove reverb
         soundEngine.removeConvolutionReverb()
@@ -131,6 +174,11 @@ dbg.add(hdrParams, 'HDR', hdrOptions).name('Level').onChange(name => {
 
         // Hide floor when HDRI is active
         floor.visible = false
+
+        // Apply lighting override if provided
+        if (preset.lighting) {
+            applyLightingOverride(preset.lighting)
+        }
 
         // Auto-select associated reverb if specified
         if (reverbPreset && reverbParams) {
@@ -349,24 +397,83 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
 
 
 /**
- * Lighting
+ * Lighting (uses defaults from constants)
  */
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d, 0.4);
-hemiLight.position.set(0, 100, 0);
-scene.add(hemiLight);
+const hemiLight = new THREE.HemisphereLight(
+    LightingDefaults.hemisphere.skyColor,
+    LightingDefaults.hemisphere.groundColor,
+    LightingDefaults.hemisphere.intensity
+)
+hemiLight.position.set(0, 100, 0)
+scene.add(hemiLight)
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+const ambientLight = new THREE.AmbientLight(
+    LightingDefaults.ambient.color,
+    LightingDefaults.ambient.intensity
+)
 scene.add(ambientLight)
 
 const directionalLights = createDirectionalLights([
-    { color: 0xffffff, intensity: 1.0, position: [5, 3, 4] },
-    { color: 0xffffff, intensity: 1.0, position: [8, 3, -1] },
-    { color: 0xffffff, intensity: 0.2, position: [-5, 5, -5] }
+    { color: LightingDefaults.directional[0].color, intensity: LightingDefaults.directional[0].intensity, position: [5, 3, 4] },
+    { color: LightingDefaults.directional[1].color, intensity: LightingDefaults.directional[1].intensity, position: [8, 3, -1] },
+    { color: LightingDefaults.directional[2].color, intensity: LightingDefaults.directional[2].intensity, position: [-5, 5, -5] }
 ])
 directionalLights.forEach(l => scene.add(l))
 
-// const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLights[0], 0.2)
-// scene.add(directionalLightHelper)
+// Baseline lighting snapshot (built after renderer init)
+let baseLightingSnapshot = null
+function buildLightingSnapshot() {
+    baseLightingSnapshot = {
+        ambient: { color: ambientLight.color.getHex(), intensity: ambientLight.intensity },
+        hemi: { sky: hemiLight.color.getHex(), ground: hemiLight.groundColor.getHex(), intensity: hemiLight.intensity },
+        directional: directionalLights.map(dl => ({ color: dl.color.getHex(), intensity: dl.intensity })),
+        fog: scene.fog ? { color: scene.fog.color.getHex(), density: scene.fog.density } : null,
+        exposure: (typeof renderer !== 'undefined' && typeof renderer.toneMappingExposure === 'number') ? renderer.toneMappingExposure : 1.0
+    }
+}
+function resetLightingFromSnapshot() {
+    if (!baseLightingSnapshot) buildLightingSnapshot()
+    ambientLight.color.setHex(baseLightingSnapshot.ambient.color)
+    ambientLight.intensity = baseLightingSnapshot.ambient.intensity
+    hemiLight.color.setHex(baseLightingSnapshot.hemi.sky)
+    hemiLight.groundColor.setHex(baseLightingSnapshot.hemi.ground)
+    hemiLight.intensity = baseLightingSnapshot.hemi.intensity
+    directionalLights.forEach((dl,i) => {
+        dl.color.setHex(baseLightingSnapshot.directional[i].color)
+        dl.intensity = baseLightingSnapshot.directional[i].intensity
+    })
+    if (scene.fog && baseLightingSnapshot.fog) {
+        scene.fog.color.setHex(baseLightingSnapshot.fog.color)
+        scene.fog.density = baseLightingSnapshot.fog.density
+    }
+    if (baseLightingSnapshot && typeof renderer !== 'undefined' && typeof renderer.toneMappingExposure === 'number') {
+        renderer.toneMappingExposure = baseLightingSnapshot.exposure
+    }
+}
+
+function applyLightingOverride(override) {
+    if (!override) {
+        resetLightingFromSnapshot()
+        return
+    }
+    if (override.ambient) {
+        if (override.ambient.color !== undefined) ambientLight.color.setHex(override.ambient.color)
+        if (override.ambient.intensity !== undefined) ambientLight.intensity = override.ambient.intensity
+    }
+    if (override.hemisphere) {
+        if (override.hemisphere.skyColor !== undefined) hemiLight.color.setHex(override.hemisphere.skyColor)
+        if (override.hemisphere.groundColor !== undefined) hemiLight.groundColor.setHex(override.hemisphere.groundColor)
+        if (override.hemisphere.intensity !== undefined) hemiLight.intensity = override.hemisphere.intensity
+    }
+    if (override.directional && Array.isArray(override.directional)) {
+        directionalLights.forEach((dl, i) => {
+            const ov = override.directional[i]
+            if (!ov) return
+            if (ov.color !== undefined) dl.color.setHex(ov.color)
+            if (ov.intensity !== undefined) dl.intensity = ov.intensity
+        })
+    }
+}
 
 /**
  * Sizes
@@ -411,6 +518,10 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+// Build baseline lighting snapshot now that renderer exists
+buildLightingSnapshot()
+resetLightingFromSnapshot()
 
 /**
  * Audio
