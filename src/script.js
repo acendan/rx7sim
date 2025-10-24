@@ -41,6 +41,7 @@ let dbgAudioEmitters = null
 let dbgAudioMicPersp = null
 
 const dbgVehicle = dbg.addFolder('Vehicle')
+let dbgVehLevelSelect = null
 let dbgVehCarSelect = null
 let dbgVehIgnOn = null
 let dbgVehIgnOff = null
@@ -79,7 +80,7 @@ scene.add(floor)
 const hdris = {
     'Garage': {
         path: './hdri/garage.hdr',
-        reverb: 'Parking Garage',
+        reverb: 'Garage',
         lighting: {
             ambient: { color: 0xf0f0f0, intensity: 0.2 },
             hemisphere: { skyColor: 0xc0c0c0, groundColor: 0x3a3a3a, intensity: 0.15 },
@@ -92,7 +93,7 @@ const hdris = {
     },
     'Track': {
         path: './hdri/track.hdr',
-        reverb: 'Parking Garage',
+        reverb: 'Outdoors',
         lighting: {
             ambient: { color: 0xfff693, intensity: 0.25 },
             hemisphere: { skyColor: 0xcce6ff, groundColor: 0x5a5a5a, intensity: 0.15 },
@@ -111,7 +112,7 @@ let currentHDRTexture = null
 
 const hdrOptions = ['None', ...Object.keys(hdris)]
 const hdrParams = { HDR: 'None' }
-dbg.add(hdrParams, 'HDR', hdrOptions).name('Level').onChange(name => {
+dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Select').onChange(name => {
     if (name === 'None') {
         // Dispose previously loaded HDR texture and restore defaults
         if (currentHDRTexture) {
@@ -189,8 +190,9 @@ dbg.add(hdrParams, 'HDR', hdrOptions).name('Level').onChange(name => {
                 // Manually trigger the reverb loading logic
                 const reverbMapEntry = reverbMap[reverbPreset]
                 if (reverbMapEntry) {
-                    const { path: reverbPath, blend = 0.5 } = reverbMapEntry
+                    const { path: reverbPath, blend = 0.5, scalingFactor = 1.0 } = reverbMapEntry
                     soundEngine.currentReverbBlend = blend
+                    soundEngine.currentReverbScalingFactor = scalingFactor
                     const reverbLoader = new THREE.AudioLoader()
                     reverbLoader.load(reverbPath, (buffer) => {
                         soundEngine.applyConvolutionReverb(buffer)
@@ -710,11 +712,10 @@ const soundEngine = {
             convolver.buffer = reverbBuffer
 
             // Gain nodes for wet/dry mix; apply normalization to wet path only
-            const fxScalingFactor = 0.33 // Lower overall level to avoid clipping when multiple emitters active
             const wetGain = ctx.createGain()
             const dryGain = ctx.createGain()
-            wetGain.gain.value = blend * fxScalingFactor
-            dryGain.gain.value = (1.0 - blend) * fxScalingFactor
+            wetGain.gain.value = blend * this.currentReverbScalingFactor
+            dryGain.gain.value = (1.0 - blend) * this.currentReverbScalingFactor
 
             // PositionalAudio has .panner as its output prior to filters
             const sourceNode = emitter.panner
@@ -746,13 +747,15 @@ const soundEngine = {
             }
         })
         this.currentReverbBlend = null
+        this.currentReverbScalingFactor = null
     }
 }
 soundEngine.load()
 
-// Convolution reverb presets with blend (0..1 wet mix)
+// Convolution reverb presets with blend (0..1 wet mix) and scaling factor (to better match levels between presets)
 const reverbMap = {
-    'Parking Garage': { path: './audio/ir/parkingGarage.ogg', blend: 0.6 }
+    'Garage': { path: './audio/ir/garage.ogg', blend: 0.8, scalingFactor: 0.33 },
+    'Outdoors': { path: './audio/ir/outdoors.ogg', blend: 0.6, scalingFactor: 0.2 }
 }
 const reverbParams = { Reverb: 'None' }
 dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Conv. Reverb').onChange(name => {
@@ -762,8 +765,9 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
     }
     const preset = reverbMap[name]
     if (!preset) return
-    const { path, blend = 0.5 } = preset
+    const { path, blend = 0.5, scalingFactor = 1.0 } = preset
     soundEngine.currentReverbBlend = blend
+    soundEngine.currentReverbScalingFactor = scalingFactor
     const reverbLoader = new THREE.AudioLoader()
     reverbLoader.load(path, (buffer) => {
         soundEngine.applyConvolutionReverb(buffer)
