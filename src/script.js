@@ -39,6 +39,13 @@ if (!audioCheck.available) {
 /**
  * Setup
  */
+// Initialization state flags to prevent race conditions
+const initState = {
+    modelsLoaded: false,
+    audioLoaded: false,
+    sceneReady: false
+}
+
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
 
@@ -223,23 +230,37 @@ let anims = {
     lightsFlipFlop: true,
     lightsIntensity: 3.0,
     lightsTimeScaleToggle: () => {
+        // Guard against accessing before lights are loaded
+        if (!anims.mixerLights) return
+
         if (anims.lightsFlipFlop) {
             anims.mixerLights.timeScale = 1.5
             for (let i = 0; i < 5; i++) {
                 const key = `actLights${i}`
-                anims[key].time = 0
+                if (anims[key]) anims[key].time = 0
             }
             anims.lightsFlipFlop = false
         } else {
             anims.mixerLights.timeScale = -1.5
             for (let i = 0; i < 5; i++) {
                 const key = `actLights${i}`
-                anims[key].time = anims[key].getClip().duration - anims[key].time
+                if (anims[key]) anims[key].time = anims[key].getClip().duration - anims[key].time
             }
             anims.lightsFlipFlop = true
         }
     },
-    lights: () => { anims.mixerLights.stopAllAction(), anims.lightsTimeScaleToggle(), anims.actLights0.play(), anims.actLights1.play(), anims.actLights2.play(), anims.actLights3.play(), anims.actLights4.play() }
+    lights: () => { 
+        // Guard against accessing before lights are loaded
+        if (!anims.mixerLights) return
+        
+        anims.mixerLights.stopAllAction()
+        anims.lightsTimeScaleToggle()
+        if (anims.actLights0) anims.actLights0.play()
+        if (anims.actLights1) anims.actLights1.play()
+        if (anims.actLights2) anims.actLights2.play()
+        if (anims.actLights3) anims.actLights3.play()
+        if (anims.actLights4) anims.actLights4.play()
+    }
 }
 
 /**
@@ -316,8 +337,11 @@ async function initializeModels() {
         // Solo buttons
         setupSoloButtons(gltfCar.scene)
 
+        // Mark models as loaded
+        initState.modelsLoaded = true
+
         loadingUI.remove()
-        console.log('✓ All models loaded')
+        console.log('✓ All models loaded successfully')
     } catch (error) {
         loadingUI.remove()
         console.error('Failed to load models:', error)
@@ -580,9 +604,22 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
 */
 
 // Call the new async initialization
-initializeModels().catch(err => {
+initializeModels().then(() => {
+    // Check if everything is ready
+    checkSceneReady()
+}).catch(err => {
     console.error('Critical error during model initialization:', err)
 })
+
+/**
+ * Check if all async operations are complete and mark scene as ready
+ */
+function checkSceneReady() {
+    if (initState.modelsLoaded && initState.audioLoaded && !initState.sceneReady) {
+        initState.sceneReady = true
+        console.log('✓ Scene fully initialized and ready')
+    }
+}
 
 /**
  * Lighting (uses defaults from constants)
@@ -851,13 +888,18 @@ const soundEngine = {
         });
 
         driveState = DriveState.ACCEL;
-        anims.mixerWheels.stopAllAction();
-        anims.actWheelsRot.play();
-        anims.actTiresRot.play();
-        anims.mixerWheels.timeScale = 0.01;
+        
+        // Guard against accessing animation mixers before models are loaded
+        if (anims.mixerWheels) {
+            anims.mixerWheels.stopAllAction();
+            anims.actWheelsRot.play();
+            anims.actTiresRot.play();
+            anims.mixerWheels.timeScale = 0.01;
+        }
 
-        dbgVehIgnOn.hide();
-        dbgVehIgnOff.show();
+        // Guard against accessing debug UI before it's initialized
+        if (dbgVehIgnOn) dbgVehIgnOn.hide();
+        if (dbgVehIgnOff) dbgVehIgnOff.show();
     },
 
     ignitionOff: () => {
@@ -877,8 +919,9 @@ const soundEngine = {
 
         driveState = DriveState.DECEL;
 
-        dbgVehIgnOn.show();
-        dbgVehIgnOff.hide();
+        // Guard against accessing debug UI before it's initialized
+        if (dbgVehIgnOn) dbgVehIgnOn.show();
+        if (dbgVehIgnOff) dbgVehIgnOff.hide();
     },
 
     load() {
@@ -902,13 +945,17 @@ const soundEngine = {
 
         // Wait for all audio to load
         Promise.all(loadPromises).then(() => {
+            initState.audioLoaded = true
             console.log('✓ All audio files loaded')
+            checkSceneReady()
         }).catch(() => {
+            initState.audioLoaded = true // Mark as loaded even with errors
             showErrorUI(
                 'Audio Load Warning',
                 'Some audio files failed to load. The experience may be incomplete.',
                 false
             )
+            checkSceneReady()
         })
     },
 
@@ -1194,8 +1241,11 @@ const tick = () => {
         anims.mixerLights.update(deltaTime)
 
         // Set light intensity to headlight time animation progress
-        const headLightsIntensity = anims.lightsIntensity - (anims.actLights0.time / anims.actLights0.getClip().duration) * anims.lightsIntensity
-        anims.headLightL.intensity = anims.headLightR.intensity = headLightsIntensity
+        // Guard against accessing actions before they're initialized
+        if (anims.actLights0 && anims.headLightL && anims.headLightR) {
+            const headLightsIntensity = anims.lightsIntensity - (anims.actLights0.time / anims.actLights0.getClip().duration) * anims.lightsIntensity
+            anims.headLightL.intensity = anims.headLightR.intensity = headLightsIntensity
+        }
     }
 
     // Demo of car moving back and forth slightly
@@ -1222,7 +1272,10 @@ const tick = () => {
     // Update audio emitter volumes for smooth transitions
     soundEngine.setEmitterVolumes(soloState)
 
-    audioMeters.update()
+    // Guard against accessing meters before initialization
+    if (audioMeters && audioMeters.update) {
+        audioMeters.update()
+    }
 
     // Render
     renderer.render(scene, camera)
