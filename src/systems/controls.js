@@ -152,11 +152,9 @@ export function createControls({ initVisible = false, initIgnition = false, init
             <path d="M18 36 A6 6 0 0 1 18 12" fill="none" stroke="#fff" stroke-width="2.2"/>
             <line x1="18" y1="12" x2="18" y2="36" stroke="#fff" stroke-width="2.2"/>
             <!-- Beams, angled downwards -->
-            <path class="headlight-beams" d="
-            M26 19 L40 23
-            M26 24 L40 28
-            M26 29 L40 33
-            " stroke="#ff0" stroke-width="3" stroke-linecap="round" opacity="1"/>
+            <line class="beam beam-1" x1="26" y1="19" x2="40" y2="23" stroke="#ff0" stroke-width="3" stroke-linecap="round" opacity="1"/>
+            <line class="beam beam-2" x1="26" y1="24" x2="40" y2="28" stroke="#ff0" stroke-width="3" stroke-linecap="round" opacity="1"/>
+            <line class="beam beam-3" x1="26" y1="29" x2="40" y2="33" stroke="#ff0" stroke-width="3" stroke-linecap="round" opacity="1"/>
             </svg>
             </span>
         `
@@ -181,26 +179,66 @@ export function createControls({ initVisible = false, initIgnition = false, init
             overflow: 'hidden'
         })
 
-        function updateHeadlightsButton() {
-            const beamsPath = headlightsBtn.querySelector('.headlight-beams')
-            if (headlightsOn) {
-            beamsPath.setAttribute('stroke', '#ff0')
-            beamsPath.style.opacity = '1'
-            headlightsBtn.style.background = 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)' // slightly lighter dark grey
-            } else {
-            beamsPath.setAttribute('stroke', '#888')
-            beamsPath.style.opacity = '0.5'
-            headlightsBtn.style.background = 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)' // dark grey
+        // Animation helpers
+        let beams = null
+        let beamsAnimating = false
+        function getBeams() {
+            if (!beams) {
+            beams = [
+                headlightsBtn.querySelector('.beam-1'),
+                headlightsBtn.querySelector('.beam-2'),
+                headlightsBtn.querySelector('.beam-3')
+            ]
             }
-            if (headlightsCallback) {
-            headlightsCallback(headlightsOn)
+            return beams
+        }
+
+        function setBeamState(idx, on) {
+            const beam = getBeams()[idx]
+            beam.setAttribute('stroke', on ? '#ff0' : '#888')
+            beam.style.opacity = on ? '1' : '0.5'
+        }
+
+        function animateBeams(turnOn, callback) {
+            if (beamsAnimating) return
+            beamsAnimating = true
+            const beamsArr = getBeams()
+            const order = turnOn ? [0, 1, 2] : [2, 1, 0]
+            let i = 0
+            function step() {
+            setBeamState(order[i], turnOn)
+            i++
+            if (i < order.length) {
+                setTimeout(step, 70)
+            } else {
+                beamsAnimating = false
+                if (callback) callback()
+            }
+            }
+            step()
+        }
+
+        function updateHeadlightsButton(animated = false) {
+            if (animated) {
+            animateBeams(headlightsOn, () => {
+                headlightsBtn.style.background = headlightsOn
+                ? 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)'
+                : 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)'
+                if (headlightsCallback) headlightsCallback(headlightsOn)
+            })
+            } else {
+            getBeams().forEach((beam, idx) => setBeamState(idx, headlightsOn))
+            headlightsBtn.style.background = headlightsOn
+                ? 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)'
+                : 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)'
+            if (headlightsCallback) headlightsCallback(headlightsOn)
             }
         }
         // Initialize button state
-        updateHeadlightsButton()
+        updateHeadlightsButton(false)
         headlightsBtn.addEventListener('click', () => {
             headlightsOn = !headlightsOn
-            updateHeadlightsButton()
+            updateHeadlightsButton(true)
         })
         panel.appendChild(headlightsBtn)
 
