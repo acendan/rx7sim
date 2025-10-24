@@ -1,15 +1,30 @@
+/**
+ * @fileoverview Particle system for exhaust smoke visualization with object pooling
+ * @module systems/exhaust
+ */
+
 import * as THREE from 'three'
 
+/** Maximum number of particles that can be active simultaneously */
 const MAX_PARTICLES = 1000
+
+/** Shared geometry for all smoke particles */
 const smokeGeometry = new THREE.BufferGeometry()
-const smokePositions = new Float32Array(MAX_PARTICLES * 3) // Max particles, xyz positions
-const smokeColors = new Float32Array(MAX_PARTICLES * 4) // RGBA colors
-const smokeSizes = new Float32Array(MAX_PARTICLES) // Particle sizes
+
+/** Position buffer for particle vertices (xyz per particle) */
+const smokePositions = new Float32Array(MAX_PARTICLES * 3)
+
+/** Color buffer for particles (RGBA per particle) */
+const smokeColors = new Float32Array(MAX_PARTICLES * 4)
+
+/** Size buffer for particles */
+const smokeSizes = new Float32Array(MAX_PARTICLES)
 
 smokeGeometry.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3))
 smokeGeometry.setAttribute('color', new THREE.BufferAttribute(smokeColors, 4))
 smokeGeometry.setAttribute('size', new THREE.BufferAttribute(smokeSizes, 1))
 
+/** Material for smoke particles with additive blending */
 const smokeMaterial = new THREE.PointsMaterial({
     size: 0.1,
     vertexColors: true,
@@ -18,19 +33,23 @@ const smokeMaterial = new THREE.PointsMaterial({
     blending: THREE.AdditiveBlending
 })
 
+/** Three.js Points mesh for rendering all particles */
 const smokePoints = new THREE.Points(smokeGeometry, smokeMaterial)
 
 /**
- * Object Pool for particles to avoid constant allocation/deallocation
+ * Object pool for particle management
+ * Reuses particle objects to minimize garbage collection pressure
+ * @namespace
  */
 const particlePool = {
-    // Pool of reusable particle objects
+    /** @type {Array<Object>} Pool of reusable particle objects */
     pool: [],
-    // Active particles currently in use
+    /** @type {Array<Object>} Active particles currently in use */
     active: [],
     
     /**
-     * Get a particle from the pool or create a new one
+     * Acquires a particle from the pool or creates a new one if pool is empty
+     * @returns {Object} A particle object with default properties
      */
     acquire() {
         let particle
@@ -60,7 +79,8 @@ const particlePool = {
     },
     
     /**
-     * Return a particle to the pool for reuse
+     * Returns a particle to the pool for later reuse
+     * @param {Object} particle - The particle to release
      */
     release(particle) {
         const index = this.active.indexOf(particle)
@@ -71,14 +91,15 @@ const particlePool = {
     },
     
     /**
-     * Get count of active particles
+     * Gets the count of currently active particles
+     * @returns {number} Number of particles in use
      */
     getActiveCount() {
         return this.active.length
     },
     
     /**
-     * Clear all particles
+     * Clears all active particles and returns them to the pool
      */
     clear() {
         // Return all active particles to pool
@@ -88,11 +109,22 @@ const particlePool = {
     }
 }
 
+/**
+ * Particle system for exhaust smoke effects
+ * Manages smoke particle emission, animation, and rendering
+ * @namespace
+ */
 export const particleSystem = {
+    /** @type {Array<Object>} Array of particle emitters */
     emitters: [],
-    enabled: true, // Global enable/disable flag
-    visible: true, // Visibility flag for culling
+    /** @type {boolean} Global enable/disable flag */
+    enabled: true,
+    /** @type {boolean} Visibility flag for culling when off-screen */
+    visible: true,
     
+    /**
+     * Initializes the particle system and creates exhaust emitters
+     */
     initialize: () => {
         // Create exhaust emitter for tailpipe
         const exhaustEmitter = {
@@ -126,6 +158,12 @@ export const particleSystem = {
         }
         particleSystem.emitters.push(exhaustEmitter)
     },
+    
+    /**
+     * Updates particle system - creates new particles and updates existing ones
+     * @param {number} deltaTime - Time elapsed since last frame in seconds
+     * @param {string} engineState - Current engine state ('stop', 'drive', 'accel', 'decel')
+     */
     update: (deltaTime, engineState) => {
         // Skip particle updates if system is disabled or not visible
         if (!particleSystem.enabled || !particleSystem.visible) {
@@ -264,9 +302,19 @@ export const particleSystem = {
             smokeGeometry.attributes.size.needsUpdate = true
         }
     },
+    
+    /**
+     * Gets the Three.js Points mesh for rendering
+     * @returns {THREE.Points} The smoke particles mesh
+     */
     getMesh: () => {
         return smokePoints
     },
+    
+    /**
+     * Disposes of all particle system resources
+     * Cleans up geometry, material, and particle pool
+     */
     dispose: () => {
         // Clear particle pool
         particlePool.clear()
@@ -284,7 +332,11 @@ export const particleSystem = {
     },
     
     /**
-     * Get performance stats
+     * Gets performance statistics about the particle system
+     * @returns {Object} Stats object
+     * @returns {number} return.activeParticles - Number of currently active particles
+     * @returns {number} return.pooledParticles - Number of particles available in pool
+     * @returns {number} return.totalAllocated - Total particles allocated in memory
      */
     getStats: () => {
         return {

@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Main application entry point for RX7 sound simulator
+ * Three.js-based 3D car visualization with spatial audio engine
+ * Features positional audio with intake/exhaust/interior perspectives,
+ * particle-based exhaust smoke, dynamic lighting, and HDR environments
+ * @module script
+ */
+
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -9,7 +17,11 @@ THREE.ColorManagement.enabled = false
 
 import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
 import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser, checkWebGLSupport, checkWebAudioSupport, showErrorUI, showLoadingUI, loadGLTFModel, loadAudioFile, loadHDRTexture } from './systems/helpers.js'
+
+/** @type {string} Current driving state (STOP, DRIVE, ACCEL, DECEL) */
 var driveState = DriveState.STOP
+
+/** @type {string} Current audio solo state (MIX, INTAKE, EXHAUST, INTERIOR) */
 var soloState = SoloState.MIX
 
 import { particleSystem } from './systems/exhaust.js'
@@ -40,44 +52,67 @@ if (!audioCheck.available) {
 /**
  * Setup
  */
-// Initialization state flags to prevent race conditions
+/**
+ * Initialization state flags to prevent race conditions during async loading
+ * @type {Object}
+ * @property {boolean} modelsLoaded - Whether GLTF models have finished loading
+ * @property {boolean} audioLoaded - Whether audio files have finished loading
+ * @property {boolean} sceneReady - Whether the complete scene is ready for rendering
+ */
 const initState = {
     modelsLoaded: false,
     audioLoaded: false,
     sceneReady: false
 }
 
-// Canvas
+/** @type {HTMLCanvasElement} Main WebGL canvas element */
 const canvas = document.querySelector('canvas.webgl')
 
-// Scene
+/** @type {THREE.Scene} Main Three.js scene */
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0xa0a0a0);
 scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
 
-// Debug
+/**
+ * Debug UI controls using lil-gui
+ */
+/** @type {dat.GUI} Main debug GUI controller */
 const dbg = new dat.GUI()
 
+/** @type {Object} Audio debug settings */
 const dbgAudioSettings = {
     'Meters': true,
     'Emitters': false
 }
+/** @type {dat.GUI} Audio folder in debug UI */
 const dbgAudio = dbg.addFolder('Audio')
+/** @type {dat.Controller|null} Reverb debug controller */
 let dbgAudioReverb = null
+/** @type {dat.Controller|null} Meters debug controller */
 let dbgAudioMeters = null
+/** @type {dat.Controller|null} Emitters debug controller */
 let dbgAudioEmitters = null
+/** @type {dat.Controller|null} Microphone perspective debug controller */
 let dbgAudioMicPersp = null
 
+/** @type {dat.GUI} Vehicle folder in debug UI */
 const dbgVehicle = dbg.addFolder('Vehicle')
+/** @type {dat.Controller|null} Level/environment selector */
 let dbgVehLevelSelect = null
+/** @type {dat.Controller|null} Car model selector */
 let dbgVehCarSelect = null
+/** @type {dat.Controller|null} Ignition on button */
 let dbgVehIgnOn = null
+/** @type {dat.Controller|null} Ignition off button */
 let dbgVehIgnOff = null
 
+/** @type {dat.GUI} Performance folder in debug UI */
 const dbgPerformance = dbg.addFolder('Performance')
+/** @type {Object} Performance debug settings */
 const dbgPerfSettings = {
     'Show Stats': false
 }
+/** @type {dat.Controller|null} Stats display controller */
 let dbgPerfStats = null
 
 // Axes
@@ -86,14 +121,21 @@ let dbgPerfStats = null
 // scene.add(axes)
 // dbgUtils.add(axes, 'visible').name('Axes')
 
-// Loaders
+/**
+ * Asset loaders for models, audio, and HDR textures
+ */
+/** @type {GLTFLoader} Loader for GLTF/GLB 3D models */
 const gltfLoader = new GLTFLoader()
+/** @type {THREE.AudioLoader} Loader for audio files */
 const audioLoader = new THREE.AudioLoader()
+/** @type {RGBELoader} Loader for RGBE/HDR image files */
 const rgbeLoader = new RGBELoader()
+/** @type {HDRCubeTextureLoader} Loader for HDR cube map textures */
 const hdrCubeLoader = new HDRCubeTextureLoader()
 
 /**
- * Floor
+ * Floor plane with shadow receiving
+ * @type {THREE.Mesh}
  */
 const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(10, 10),
@@ -108,14 +150,19 @@ floor.rotation.x = - Math.PI * 0.5
 scene.add(floor)
 
 /**
- * HDRIs
+ * HDR Environment Management
  */
 
-// Keep reference to the original background so "None" can restore it
+/** @type {THREE.Color} Original scene background color to restore when HDR is disabled */
 const originalBackground = scene.background ? scene.background.clone() : new THREE.Color(0xa0a0a0)
+
+/** @type {THREE.DataTexture|null} Currently loaded HDR texture */
 let currentHDRTexture = null
 
+/** @type {Array<string>} Available HDR environment options */
 const hdrOptions = ['None', ...Object.keys(EnvironmentPresets)]
+
+/** @type {Object} Current HDR selection parameter */
 const hdrParams = { HDR: 'None' }
 dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Select').onChange(name => {
     if (name === 'None') {
@@ -215,16 +262,32 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
 
 
 /**
- * Objects
+ * 3D Objects & Models
  */
+
+/** @type {THREE.Group} Main group container for car model and related objects */
 let carGroup = new THREE.Group()
 scene.add(carGroup)
 carGroup.add(particleSystem.getMesh())
 
-// Line buttons: will be created after car model loads; store them here
+/** @type {Array<Object>} Collection of interactive line button UI elements */
 const lineButtons = []
 
-// Animation mixers and actions
+/**
+ * Animation system
+ * Central object managing all animation mixers and actions for wheels, lights, and headlights
+ * @type {Object}
+ * @property {THREE.AnimationMixer|null} mixerWheels - Animation mixer for wheel rotations
+ * @property {THREE.AnimationAction|null} actWheelsRot - Wheel rotation animation action
+ * @property {THREE.AnimationAction|null} actTiresRot - Tire rotation animation action
+ * @property {THREE.AnimationMixer|null} mixerLights - Animation mixer for popup headlights
+ * @property {THREE.AnimationAction|null} actLights0-4 - Individual light animation actions (5 total)
+ * @property {THREE.SpotLight|null} headLightL - Left headlight spot light
+ * @property {THREE.SpotLight|null} headLightR - Right headlight spot light
+ * @property {boolean} lightsFlipFlop - State toggle for headlight animation direction
+ * @property {number} lightsIntensity - Current headlight intensity multiplier
+ * @property {function(): void} lightsTimeScaleToggle - Toggles headlight animation direction
+ */
 let anims = {
     // Wheels
     mixerWheels: null,
@@ -271,7 +334,10 @@ let anims = {
 }
 
 /**
- * Async initialization to load all models with error handling
+ * Asynchronously loads all 3D models (car, wheels, lights) with parallel loading
+ * Sets up animations, headlights, and solo buttons after models are loaded
+ * @async
+ * @throws {Error} If any model fails to load
  */
 async function initializeModels() {
     const loadingUI = showLoadingUI('Loading models...')
@@ -361,7 +427,9 @@ async function initializeModels() {
 }
 
 /**
- * Setup solo buttons for audio perspectives
+ * Creates interactive solo buttons for switching audio perspectives
+ * Buttons connect screen UI to 3D positions on the car (intake, exhaust, interior)
+ * @param {THREE.Object3D} carScene - The loaded car model to attach button targets to
  */
 function setupSoloButtons(carScene) {
     const intakeSoloBtn = createLineButton({ 
@@ -619,7 +687,8 @@ initializeModels().then(() => {
 })
 
 /**
- * Check if all async operations are complete and mark scene as ready
+ * Checks if all async loading operations are complete and marks scene as ready
+ * Called after models and audio finish loading
  */
 function checkSceneReady() {
     if (initState.modelsLoaded && initState.audioLoaded && !initState.sceneReady) {
@@ -629,8 +698,11 @@ function checkSceneReady() {
 }
 
 /**
- * Lighting (uses defaults from constants)
+ * Scene Lighting Setup
+ * Uses default values from constants.js with support for environment-based overrides
  */
+
+/** @type {THREE.HemisphereLight} Sky/ground hemisphere light */
 const hemiLight = new THREE.HemisphereLight(
     LightingDefaults.hemisphere.skyColor,
     LightingDefaults.hemisphere.groundColor,
@@ -639,12 +711,14 @@ const hemiLight = new THREE.HemisphereLight(
 hemiLight.position.set(0, 100, 0)
 scene.add(hemiLight)
 
+/** @type {THREE.AmbientLight} Global ambient illumination */
 const ambientLight = new THREE.AmbientLight(
     LightingDefaults.ambient.color,
     LightingDefaults.ambient.intensity
 )
 scene.add(ambientLight)
 
+/** @type {Array<THREE.DirectionalLight>} Array of directional shadow-casting lights */
 const directionalLights = createDirectionalLights([
     { color: LightingDefaults.directional[0].color, intensity: LightingDefaults.directional[0].intensity, position: [5, 3, 4] },
     { color: LightingDefaults.directional[1].color, intensity: LightingDefaults.directional[1].intensity, position: [8, 3, -1] },
@@ -652,8 +726,18 @@ const directionalLights = createDirectionalLights([
 ])
 directionalLights.forEach(l => scene.add(l))
 
-// Baseline lighting snapshot (built after renderer init)
+/**
+ * Lighting snapshot system for environment-based lighting overrides
+ * Captures baseline lighting state to enable reset after environment changes
+ */
+
+/** @type {Object|null} Snapshot of baseline lighting configuration */
 let baseLightingSnapshot = null
+
+/**
+ * Captures current lighting state as baseline
+ * Called after renderer initialization to include tone mapping exposure
+ */
 function buildLightingSnapshot() {
     baseLightingSnapshot = {
         ambient: { color: ambientLight.color.getHex(), intensity: ambientLight.intensity },
@@ -663,6 +747,11 @@ function buildLightingSnapshot() {
         exposure: (typeof renderer !== 'undefined' && typeof renderer.toneMappingExposure === 'number') ? renderer.toneMappingExposure : 1.0
     }
 }
+
+/**
+ * Restores lighting to baseline snapshot state
+ * Used when switching back from environment presets to default lighting
+ */
 function resetLightingFromSnapshot() {
     if (!baseLightingSnapshot) buildLightingSnapshot()
     ambientLight.color.setHex(baseLightingSnapshot.ambient.color)
@@ -683,6 +772,18 @@ function resetLightingFromSnapshot() {
     }
 }
 
+/**
+ * Applies environment-specific lighting override or resets to baseline
+ * @param {Object|null} override - Lighting override configuration or null to reset
+ * @param {Object} [override.ambient] - Ambient light overrides
+ * @param {number} [override.ambient.color] - Ambient color as hex
+ * @param {number} [override.ambient.intensity] - Ambient intensity
+ * @param {Object} [override.hemisphere] - Hemisphere light overrides
+ * @param {number} [override.hemisphere.skyColor] - Sky color as hex
+ * @param {number} [override.hemisphere.groundColor] - Ground color as hex
+ * @param {number} [override.hemisphere.intensity] - Hemisphere intensity
+ * @param {Array<Object>} [override.directional] - Directional light overrides
+ */
 function applyLightingOverride(override) {
     if (!override) {
         resetLightingFromSnapshot()
@@ -708,14 +809,19 @@ function applyLightingOverride(override) {
 }
 
 /**
- * Sizes
+ * Viewport sizing and responsive handling
  */
+
+/** @type {Object} Current viewport dimensions */
 const sizes = {
     width: window.innerWidth,
     height: window.innerHeight
 }
 
-// Store resize handler so we can remove it if needed
+/**
+ * Handles window resize events
+ * Updates camera aspect ratio, renderer size, and pixel ratio
+ */
 const handleResize = () => {
     sizes.width = window.innerWidth
     sizes.height = window.innerHeight
@@ -730,21 +836,25 @@ const handleResize = () => {
 window.addEventListener('resize', handleResize)
 
 /**
- * Camera
+ * Camera and Controls
  */
-// Base camera
+
+/** @type {THREE.PerspectiveCamera} Main perspective camera */
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
 camera.position.set(4, 2, 3)
 scene.add(camera)
 
-// Controls
+/** @type {OrbitControls} Orbit camera controls with damping */
 const controls = new OrbitControls(camera, canvas)
 controls.target.set(0, 0.75, 0)
 controls.enableDamping = true
 
 /**
- * Renderer
+ * WebGL Renderer
+ * Configured with shadow mapping and linear color space
  */
+
+/** @type {THREE.WebGLRenderer} Main WebGL renderer */
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas
 })
@@ -759,17 +869,28 @@ buildLightingSnapshot()
 resetLightingFromSnapshot()
 
 /**
- * Audio
+ * Spatial Audio System
+ * Web Audio API-based positional audio with directional cones for intake/exhaust
  */
-// Listener
+
+/** @type {THREE.AudioListener} Main audio listener attached to camera */
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-// Handle audio context state and autoplay policy
+/** @type {AudioContext} Web Audio API context */
 const audioContext = listener.context
+
+/** @type {boolean} Audio enabled state flag */
 let audioEnabled = false
 
-// Audio emitters for each position
+/**
+ * Positional audio emitters for different microphone perspectives
+ * @type {Object<string, THREE.PositionalAudio>}
+ * @property {THREE.PositionalAudio} mix - Mix perspective (unused, legacy)
+ * @property {THREE.PositionalAudio} intake - Intake microphone position (front of car)
+ * @property {THREE.PositionalAudio} exhaust - Exhaust microphone position (rear of car)
+ * @property {THREE.PositionalAudio} interior - Interior microphone position (inside cabin)
+ */
 const audioEmitters = {
     mix: new THREE.PositionalAudio(listener),
     intake: new THREE.PositionalAudio(listener),
@@ -819,8 +940,16 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     }
 });
 
+/**
+ * Sound engine - manages audio playback, buffers, and state transitions
+ * Handles ignition sequences, emitter volume mixing, and convolution reverb
+ * @type {Object}
+ */
 const soundEngine = {
-    // Buffer storage per position
+    /**
+     * Audio buffer storage organized by microphone position and sound type
+     * @type {Object<string, Object<string, AudioBuffer>>}
+     */
     buffers: {
         mix: {},
         intake: { ignitionOn: null, idle: null, ignitionOff: null },
@@ -828,9 +957,14 @@ const soundEngine = {
         interior: { ignitionOn: null, idle: null, ignitionOff: null }
     },
 
-    // Track current active emitter for smooth transitions
+    /** @type {THREE.PositionalAudio|null} Currently active audio emitter */
     currentEmitter: null,
 
+    /**
+     * Sets volume levels for all positional audio emitters based on solo state
+     * Handles smooth volume transitions and applies global multipliers from constants
+     * @param {string} currSoloState - Current solo state (MIX, INTAKE, EXHAUST, INTERIOR)
+     */
     setEmitterVolumes(currSoloState) {
         // Get individual emitters (excluding mix)
         const individualEmitters = ['intake', 'exhaust', 'interior'];
@@ -863,6 +997,11 @@ const soundEngine = {
         audioEmitters.mix.setVolume(0);
     },
 
+    /**
+     * Starts engine ignition sequence across all audio emitters
+     * Resumes audio context on first user interaction (handles browser autoplay policy)
+     * Plays ignition sound followed by idle loop, starts wheel animations
+     */
     ignitionOn: () => {
         // Resume audio context on first user interaction (handles autoplay policy)
         if (audioContext.state === 'suspended') {
@@ -909,6 +1048,10 @@ const soundEngine = {
         if (dbgVehIgnOff) dbgVehIgnOff.show();
     },
 
+    /**
+     * Stops engine and plays ignition off sequence
+     * Triggers shutdown sound then stops all audio playback
+     */
     ignitionOff: () => {
         // Play ignition off for all positions
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
@@ -931,6 +1074,11 @@ const soundEngine = {
         if (dbgVehIgnOff) dbgVehIgnOff.hide();
     },
 
+    /**
+     * Preloads all audio files into buffers
+     * Caches audio for ignitionOn, idle, and ignitionOff for each microphone position
+     * Updates initialization state when complete
+     */
     load() {
         // Cache buffers for all positions
         const engine = this
@@ -966,6 +1114,11 @@ const soundEngine = {
         })
     },
 
+    /**
+     * Applies convolution reverb to all audio emitters with wet/dry mixing
+     * Creates parallel signal path: dry gain + (convolver -> wet gain)
+     * @param {AudioBuffer} reverbBuffer - Impulse response buffer for convolution
+     */
     applyConvolutionReverb(reverbBuffer) {
         // Uses latest selected reverb name stored on soundEngine
         const blend = this.currentReverbBlend ?? 0.5
@@ -1010,6 +1163,10 @@ const soundEngine = {
         })
     },
 
+    /**
+     * Removes convolution reverb by disconnecting custom filter graph
+     * Restores direct audio path without reverb processing
+     */
     removeConvolutionReverb() {
         // Remove custom filter graph (disconnect reverb nodes)
         Object.values(audioEmitters).forEach(em => {
@@ -1031,11 +1188,18 @@ const soundEngine = {
 }
 soundEngine.load()
 
-// Convolution reverb presets with blend (0..1 wet mix) and scaling factor (to better match levels between presets)
+/**
+ * Convolution Reverb Configuration
+ * Maps reverb preset names to impulse response files with wet/dry blend and scaling
+ */
+
+/** @type {Object<string, Object>} Reverb preset definitions */
 const reverbMap = {
     'Garage': { path: './audio/ir/garage.ogg', blend: 0.8, scalingFactor: 0.33 },
     'Outdoors': { path: './audio/ir/outdoors.ogg', blend: 0.6, scalingFactor: 0.2 }
 }
+
+/** @type {Object} Current reverb selection parameter */
 const reverbParams = { Reverb: 'None' }
 dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Conv. Reverb').onChange(name => {
     if (name === 'None') {
@@ -1055,15 +1219,20 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
     })
 })
 
-// Add meters
+/** @type {Object} Audio volume meter system */
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
 
-// Add performance monitor
+/** @type {Object} Performance monitoring system (FPS, frame time) */
 const perfMonitor = createPerformanceMonitor({ initialVisible: false })
 dbgPerfStats = dbgPerformance.add(dbgPerfSettings, 'Show Stats').onChange(v => perfMonitor.setVisible(v))
 
-// Create emitter position debuggers (initially hidden)
+/**
+ * Audio Emitter Debug Visualizers
+ * Creates 3D helpers showing emitter positions and directional cones
+ */
+
+/** @type {Map<string, THREE.Group>} Map of emitter position helpers */
 const emitterDebuggers = new Map()
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     if (pos === 'mix') return;
@@ -1097,15 +1266,24 @@ dbgAudioEmitters = dbgAudio.add(dbgAudioSettings, 'Emitters').onChange(v => {
 })
 
 /**
- * Debug
+ * Vehicle Debug Controls
  */
+
+/** @type {Array<string>} Available car models (currently only RX-7) */
 const fakeListOfCars = ['Mazda RX-7 FD']
 dbgVehCarSelect = dbgVehicle.add({ car: fakeListOfCars[0] }, 'car', fakeListOfCars).name('Car').onChange(v => {})
 dbgVehIgnOn = dbgVehicle.add(soundEngine, 'ignitionOn').name('Ignition On')
 dbgVehIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').hide()
 
 /**
- * Cleanup & Resource Management
+ * Resource Cleanup & Disposal
+ * Properly cleans up all Three.js objects, audio nodes, and event listeners
+ */
+
+/**
+ * Disposes all application resources
+ * Called on page unload or when resetting the scene
+ * Prevents memory leaks by cleaning up geometries, materials, textures, and audio nodes
  */
 function disposeAll() {
     console.log('Cleaning up resources...')
@@ -1199,13 +1377,20 @@ function disposeAll() {
     console.log('Cleanup complete')
 }
 
-// Store animation frame ID so we can cancel it
+/**
+ * Page Visibility & Performance Optimization
+ */
+
+/** @type {number|null} Current animation frame request ID */
 let animationFrameId = null
 
-// Track page visibility for performance optimization
+/** @type {boolean} Track page visibility for pausing heavy computations */
 let isPageVisible = !document.hidden
 
-// Pause simulation when tab is not visible
+/**
+ * Pause simulation when tab is not visible to save CPU/GPU resources
+ * Suspends audio context and reduces computational load
+ */
 document.addEventListener('visibilitychange', () => {
     isPageVisible = !document.hidden
     
@@ -1223,17 +1408,29 @@ document.addEventListener('visibilitychange', () => {
     }
 })
 
-// Clean up on page unload
+/**
+ * Clean up resources on page unload to prevent memory leaks
+ */
 window.addEventListener('beforeunload', () => {
     disposeAll()
 })
 
 /**
- * Main
+ * Main Animation Loop
+ * Handles animation updates, particle system, audio mixing, and rendering
  */
+
+/** @type {THREE.Clock} Main animation clock for time tracking */
 const clock = new THREE.Clock()
+
+/** @type {number} Previous frame elapsed time for delta calculation */
 let previousTime = 0
 
+/**
+ * Main render loop tick function
+ * Updates animations, particle systems, audio, and renders the scene
+ * Optimizes heavy computations based on page visibility
+ */
 const tick = () => {
     const elapsedTime = clock.getElapsedTime()
     const deltaTime = elapsedTime - previousTime
@@ -1321,11 +1518,12 @@ const tick = () => {
     // Update performance monitor
     perfMonitor.update()
 
-    // Render
+    // Render scene
     renderer.render(scene, camera)
 
-    // Call tick again on the next frame
+    // Schedule next frame
     animationFrameId = window.requestAnimationFrame(tick)
 }
 
+// Start the animation loop
 tick()

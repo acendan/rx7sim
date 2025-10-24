@@ -1,10 +1,16 @@
+/**
+ * @fileoverview Utility functions for 3D objects, audio, UI, and resource management
+ * @module systems/helpers
+ */
+
 import * as THREE from 'three'
 import { ConeEmitterSettings } from './constants.js'
 // Note: colorToHex is defined below; forward usage inside file is fine.
 
 /**
- * Check if WebGL is available and supported
- * @returns {Object} { available: boolean, error: string|null }
+ * Checks if WebGL is available and supported by the browser
+ * Tests for WebGL context and required extensions
+ * @returns {{available: boolean, error: string|null}} Support status and error message if unavailable
  */
 export function checkWebGLSupport() {
     try {
@@ -39,8 +45,8 @@ export function checkWebGLSupport() {
 }
 
 /**
- * Check if Web Audio API is available
- * @returns {Object} { available: boolean, error: string|null }
+ * Checks if Web Audio API is available and supported by the browser
+ * @returns {{available: boolean, error: string|null}} Support status and error message if unavailable
  */
 export function checkWebAudioSupport() {
     try {
@@ -61,10 +67,11 @@ export function checkWebAudioSupport() {
 }
 
 /**
- * Create and display an error overlay with a message
- * @param {string} title - Error title
- * @param {string} message - Error message
- * @param {boolean} blocking - Whether this error prevents the app from running
+ * Creates and displays an error overlay with a message
+ * Used for critical errors and non-blocking warnings
+ * @param {string} title - Error title displayed prominently
+ * @param {string} message - Detailed error message with optional line breaks
+ * @param {boolean} [blocking=true] - Whether this error prevents the app from running
  */
 export function showErrorUI(title, message, blocking = true) {
     // Remove existing error overlay if any
@@ -147,9 +154,12 @@ export function showErrorUI(title, message, blocking = true) {
 }
 
 /**
- * Show a loading overlay with progress
- * @param {string} message - Loading message
- * @returns {Object} { update: (message) => void, remove: () => void }
+ * Shows a loading overlay with a spinner and progress message
+ * Returns an object with methods to update the message or remove the overlay
+ * @param {string} [message='Loading...'] - Initial loading message
+ * @returns {{update: function(string): void, remove: function(): void}} Controller object
+ * @returns {function(string): void} return.update - Updates the loading message
+ * @returns {function(): void} return.remove - Removes the loading overlay
  */
 export function showLoadingUI(message = 'Loading...') {
     // Remove existing loading overlay if any
@@ -248,11 +258,12 @@ export async function resumeAudioContext(audioContext) {
 }
 
 /**
- * Load a GLTF model with error handling
- * @param {GLTFLoader} loader - The GLTF loader instance
- * @param {string} path - Path to the model
- * @param {Function} onProgress - Optional progress callback
- * @returns {Promise<Object>} Resolves with loaded GLTF object
+ * Loads a GLTF model asynchronously with comprehensive error handling
+ * @param {THREE.GLTFLoader} loader - The GLTF loader instance
+ * @param {string} path - Path to the .gltf or .glb model file
+ * @param {function(ProgressEvent): void} [onProgress=null] - Optional progress callback
+ * @returns {Promise<Object>} Promise that resolves with loaded GLTF object containing scene, animations, etc.
+ * @throws {Error} If the model fails to load
  */
 export function loadGLTFModel(loader, path, onProgress = null) {
     return new Promise((resolve, reject) => {
@@ -272,10 +283,11 @@ export function loadGLTFModel(loader, path, onProgress = null) {
 }
 
 /**
- * Load an audio file with error handling
- * @param {AudioLoader} loader - The audio loader instance
- * @param {string} path - Path to the audio file
- * @returns {Promise<AudioBuffer>} Resolves with loaded audio buffer
+ * Loads an audio file asynchronously with error handling
+ * @param {THREE.AudioLoader} loader - The Three.js audio loader instance
+ * @param {string} path - Path to the audio file (.ogg, .mp3, etc.)
+ * @returns {Promise<AudioBuffer>} Promise that resolves with decoded audio buffer
+ * @throws {Error} If the audio file fails to load or decode
  */
 export function loadAudioFile(loader, path) {
     return new Promise((resolve, reject) => {
@@ -295,10 +307,11 @@ export function loadAudioFile(loader, path) {
 }
 
 /**
- * Load an HDRI texture with error handling
- * @param {RGBELoader} loader - The RGBE loader instance
- * @param {string} path - Path to the HDR file
- * @returns {Promise<Texture>} Resolves with loaded texture
+ * Loads an HDR texture for environment mapping with error handling
+ * @param {THREE.RGBELoader} loader - The RGBE (HDR) loader instance
+ * @param {string} path - Path to the .hdr file
+ * @returns {Promise<THREE.DataTexture>} Promise that resolves with loaded HDR texture
+ * @throws {Error} If the HDR file fails to load
  */
 export function loadHDRTexture(loader, path) {
     return new Promise((resolve, reject) => {
@@ -359,6 +372,7 @@ export function disposeObject(object) {
 
 /**
  * Dispose of a material and its textures
+ * @private
  * @param {THREE.Material} material - Material to dispose
  */
 function disposeMaterial(material) {
@@ -443,15 +457,15 @@ export function disposeAudioAnalyser(analyser) {
 }
 
 /**
- * Create a configured directional light
- * @param {Object} opts - options
- * @param {Number} opts.color - hex color
- * @param {Number} opts.intensity - light intensity
- * @param {Number} opts.mapSize - shadow map size (number)
- * @param {Number} opts.far - shadow camera far
- * @param {Object} opts.bounds - {left, right, top, bottom}
- * @param {Array} opts.position - [x,y,z]
- * @returns {THREE.DirectionalLight}
+ * Create a configured directional light with shadow mapping
+ * @param {Object} opts - Configuration options
+ * @param {number} [opts.color=0xffffff] - Hex color value
+ * @param {number} [opts.intensity=1.0] - Light intensity
+ * @param {number} [opts.mapSize=1024] - Shadow map resolution (power of 2)
+ * @param {number} [opts.far=15] - Shadow camera frustum far plane
+ * @param {Object} [opts.bounds={left: -7, right: 7, top: 7, bottom: -7}] - Shadow camera frustum bounds
+ * @param {Array<number>} [opts.position=[5, 3, 4]] - Light position [x, y, z]
+ * @returns {THREE.DirectionalLight} Configured directional light with shadows
  */
 export function createDirectionalLight({ color = 0xffffff, intensity = 1.0, mapSize = 1024, far = 15, bounds = { left: -7, right: 7, top: 7, bottom: -7 }, position = [5, 3, 4] } = {}) {
     const light = new THREE.DirectionalLight(color, intensity)
@@ -467,19 +481,23 @@ export function createDirectionalLight({ color = 0xffffff, intensity = 1.0, mapS
 }
 
 /**
- * Convenience to create multiple directional lights from an array of configs
- * @param {Array} configs - array of config objects passed to createDirectionalLight
- * @returns {Array} lights
+ * Convenience function to create multiple directional lights from an array of configs
+ * @param {Array<Object>} [configs=[]] - Array of config objects passed to createDirectionalLight
+ * @returns {Array<THREE.DirectionalLight>} Array of configured directional lights
  */
 export function createDirectionalLights(configs = []) {
     return configs.map(cfg => createDirectionalLight(cfg))
 }
 
 /**
- * Convert a numeric color (e.g. 0xff00aa) to a #RRGGBB string.
- * Safely handles already-string inputs (returns them unchanged if they look like a hex color).
- * @param {number|string} c
- * @returns {string} #RRGGBB
+ * Convert a numeric color to a #RRGGBB hex string
+ * Safely handles already-string inputs (returns them unchanged if they look like a hex color)
+ * @param {number|string} c - Color as number (0xff00aa) or string
+ * @returns {string} Color formatted as #RRGGBB hex string
+ * @example
+ * colorToHex(0xff00aa) // "#ff00aa"
+ * colorToHex("#ff00aa") // "#ff00aa"
+ * colorToHex("0xff00aa") // "#ff00aa"
  */
 export function colorToHex(c) {
     if (typeof c === 'string') {
@@ -564,18 +582,18 @@ export function createAudioEmitterDebugger(emitter, { size = 0.2, color = 0xffff
 }
 
 /**
- * Create a pair of headlight SpotLights (left and right) with standard parameters.
- * @param {Object} opts - options
- * @param {Number} opts.color - hex color
- * @param {Number} opts.intensity - intensity
- * @param {Number} opts.distance - distance
- * @param {Number} opts.angle - cone angle radians
- * @param {Number} opts.penumbra - penumbra
- * @param {Number} opts.decay - decay
- * @param {Array} opts.leftPosition - [x,y,z]
- * @param {Array} opts.rightPosition - [x,y,z]
- * @param {Array} opts.targetPosition - [x,y,z]
- * @returns {Object} { left: SpotLight, right: SpotLight }
+ * Create a pair of headlight SpotLights (left and right) with shadow mapping
+ * @param {Object} opts - Configuration options
+ * @param {number} [opts.color=0xFFFFDE] - Hex color value (warm white)
+ * @param {number} [opts.intensity=3.0] - Light intensity
+ * @param {number} [opts.distance=10] - Maximum light distance
+ * @param {number} [opts.angle=Math.PI/6] - Cone angle in radians
+ * @param {number} [opts.penumbra=0.5] - Penumbra value (0-1)
+ * @param {number} [opts.decay=1.0] - Light decay factor
+ * @param {Array<number>} [opts.leftPosition=[0.75, 0.76, 1.8]] - Left headlight position [x, y, z]
+ * @param {Array<number>} [opts.rightPosition=[-0.75, 0.76, 1.8]] - Right headlight position [x, y, z]
+ * @param {Array<number>} [opts.targetPosition=[0, 0, 10]] - Light target position [x, y, z]
+ * @returns {Object} Object with left and right SpotLight instances: { left: THREE.SpotLight, right: THREE.SpotLight }
  */
 export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distance = 10, angle = Math.PI / 6, penumbra = 0.5, decay = 1.0, leftPosition = [0.75, 0.76, 1.8], rightPosition = [-0.75, 0.76, 1.8], targetPosition = [0, 0, 10] } = {}) {
     const left = new THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
@@ -602,18 +620,27 @@ export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distan
 }
 
 /**
- * Load (if needed) and play audio on a THREE.PositionalAudio emitter.
- * If a `store` object and `storeKey` are provided, the loaded buffer will be cached there and reused.
- * @param {THREE.AudioLoader} audioLoader - instance used to load audio files
- * @param {THREE.PositionalAudio} emitter - the positional audio emitter to play the buffer on
- * @param {String} path - URL/path to the audio file
- * @param {Object} [opts]
- * @param {Object} [opts.store] - optional object to cache loaded buffers (e.g., soundEngine)
- * @param {String} [opts.storeKey] - key on the store where the buffer will be saved/loaded
- * @param {Boolean} [opts.loop=false] - whether to loop the audio
- * @param {Number} [opts.refDistance=20] - emitter reference distance
- * @param {Number|null} [opts.volume=null] - optional volume to set (0..1)
- * @param {Function|null} [opts.onEnded=null] - optional onEnded callback to set on emitter
+ * Load (if needed) and play audio on a THREE.PositionalAudio emitter with caching support
+ * If a `store` object and `storeKey` are provided, the loaded buffer will be cached there and reused
+ * @param {THREE.AudioLoader} audioLoader - Instance used to load audio files
+ * @param {THREE.PositionalAudio} emitter - The positional audio emitter to play the buffer on
+ * @param {string} path - URL/path to the audio file
+ * @param {Object} [opts] - Configuration options
+ * @param {Object} [opts.store=null] - Optional object to cache loaded buffers (e.g., soundEngine)
+ * @param {string} [opts.storeKey=null] - Key on the store where the buffer will be saved/loaded
+ * @param {boolean} [opts.loop=false] - Whether to loop the audio
+ * @param {number} [opts.refDistance=20] - Emitter reference distance for spatial audio falloff
+ * @param {number|null} [opts.volume=null] - Optional volume to set (0..1)
+ * @param {number} [opts.offset=0] - Playback start offset in seconds
+ * @param {function(): void|null} [opts.onEnded=null] - Optional onEnded callback to set on emitter
+ * @example
+ * playPositionalAudio(audioLoader, exhaustEmitter, 'audio/exhaust/idle.ogg', {
+ *   store: soundEngine,
+ *   storeKey: 'exhaustIdleBuffer',
+ *   loop: true,
+ *   refDistance: 15,
+ *   volume: 0.8
+ * });
  */
 export function playPositionalAudio(audioLoader, emitter, path, { store = null, storeKey = null, loop = false, refDistance = 20, volume = null, offset = 0, onEnded = null } = {}) {
     const playBuffer = (buffer) => {
@@ -644,11 +671,27 @@ export function playPositionalAudio(audioLoader, emitter, path, { store = null, 
 }
 
 /**
- * Create a line with a clickable button at the end.
- * - screenAnchor: NDC coordinates (x,y) in range [-1,1] for the fixed screen point (e.g. upper-left = [-0.9,0.9])
- * - targetLocalPos: THREE.Vector3 position in local space of the target object (e.g. point on car model)
- * - targetObject: THREE.Object3D that the local position belongs to (used to compute world position and raycast intersection)
- * Returns an object { line, button, update(camera), getClickable() }
+ * Create a line with a clickable button that connects a 2D screen anchor to a 3D world position
+ * Useful for creating interactive UI elements that point to specific parts of the 3D scene
+ * @param {Object} opts - Configuration options
+ * @param {THREE.Vector2} [opts.screenAnchor=new THREE.Vector2(-0.9, 0.9)] - NDC coordinates (x,y) in range [-1,1] for the fixed screen point (e.g. upper-left = [-0.9,0.9])
+ * @param {THREE.Vector3} [opts.targetLocalPos=new THREE.Vector3(0, 0, 0)] - Position in local space of the target object (e.g. point on car model)
+ * @param {THREE.Object3D|null} [opts.targetObject=null] - Object3D that the local position belongs to (used to compute world position and raycast intersection)
+ * @param {string} [opts.label='btn'] - Button text label
+ * @param {number} [opts.color=0x00ff00] - Hex color for line and button
+ * @returns {Object} Controller object with methods: { line: THREE.Line, button: HTMLButtonElement, update(camera): void, setVisible(visible): void, getClickable(): HTMLButtonElement, dispose(): void }
+ * @example
+ * const exhaustBtn = createLineButton({
+ *   screenAnchor: new THREE.Vector2(-0.9, 0.8),
+ *   targetLocalPos: new THREE.Vector3(0, 0, -2),
+ *   targetObject: carModel,
+ *   label: 'Exhaust',
+ *   color: 0xff6600
+ * });
+ * // In render loop:
+ * exhaustBtn.update(camera);
+ * // Add click handler:
+ * exhaustBtn.getClickable().addEventListener('click', () => console.log('Exhaust clicked'));
  */
 export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), targetLocalPos = new THREE.Vector3(0, 0, 0), targetObject = null, label = 'btn', color = 0x00ff00 } = {}) {
     // Line geometry (two points)

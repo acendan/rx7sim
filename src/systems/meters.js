@@ -1,13 +1,45 @@
+/**
+ * @fileoverview Audio volume meters for visualizing positional audio emitter levels
+ * @module systems/meters
+ */
+
 import * as THREE from 'three'
 import { SoloBtnColors } from './constants.js'
 import { colorToHex } from './helpers.js'
 
-// Minimal portable mixer panel for showing emitter volumes
+/**
+ * Creates an audio mixer panel with volume meters for each emitter
+ * Displays real-time volume levels with color-coded bars
+ * 
+ * @param {Object} options - Configuration options
+ * @param {Object.<string, THREE.PositionalAudio>} [options.emitters={}] - Map of audio emitters to monitor
+ * @param {boolean} [options.initialVisible=false] - Whether the panel should be visible initially
+ * @returns {Object} Mixer instance with control methods
+ * @returns {Function} return.update - Updates all volume meters (call once per frame)
+ * @returns {Function} return.setVisible - Shows/hides the mixer panel
+ * @returns {Function} return.dispose - Removes panel and cleans up resources
+ * 
+ * @example
+ * const audioMeters = createMixer({ 
+ *     emitters: { intake, exhaust, interior },
+ *     initialVisible: true 
+ * })
+ * 
+ * function animate() {
+ *     audioMeters.update()
+ *     // ... rendering code
+ * }
+ */
 export function createMixer({ emitters = {}, initialVisible = false } = {}) {
     let visible = initialVisible
     let panel = null
     const analysers = new Map() // Store audio analysers for each emitter
 
+    /**
+     * Ensures the mixer panel DOM element exists
+     * @private
+     * @returns {HTMLDivElement} The mixer panel element
+     */
     function ensurePanel() {
         if (panel) return panel
         panel = document.createElement('div')
@@ -30,6 +62,12 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         return panel
     }
 
+    /**
+     * Builds a single volume meter row for an emitter
+     * @private
+     * @param {string} pos - Emitter position name (intake, exhaust, interior, mix)
+     * @returns {HTMLDivElement} The meter row element
+     */
     function buildRow(pos) {
         const row = document.createElement('div')
         row.dataset.pos = pos
@@ -94,6 +132,13 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         return row
     }
 
+    /**
+     * Creates an audio analyser for an emitter if one doesn't exist
+     * @private
+     * @param {string} pos - Emitter position name
+     * @param {THREE.PositionalAudio} emitter - The audio emitter to analyze
+     * @returns {THREE.AudioAnalyser|undefined} The analyser instance
+     */
     function ensureAnalyser(pos, emitter) {
         if (!analysers.has(pos) && emitter?.getOutput()) {
             const analyser = new THREE.AudioAnalyser(emitter, 32)
@@ -102,6 +147,13 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         return analysers.get(pos)
     }
 
+    /**
+     * Calculates the current volume level for an emitter
+     * @private
+     * @param {string} pos - Emitter position name
+     * @param {THREE.PositionalAudio} emitter - The audio emitter
+     * @returns {number} Volume level (0-1)
+     */
     function getEmitterVolume(pos, emitter) {
         const analyser = ensureAnalyser(pos, emitter)
         if (!analyser) return 0
@@ -111,6 +163,10 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         return volume * soloScaling
     }
 
+    /**
+     * Updates all volume meters with current audio levels
+     * Should be called once per frame
+     */
     function update() {
         const p = ensurePanel()
         Object.entries(emitters).forEach(([pos, emitter]) => {
@@ -133,11 +189,18 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         panel.style.display = visible ? '' : 'none'
     }
 
+    /**
+     * Sets the visibility of the mixer panel
+     * @param {boolean} v - Whether the panel should be visible
+     */
     function setVisible(v) {
         visible = !!v
         if (panel) panel.style.display = visible ? '' : 'none'
     }
 
+    /**
+     * Cleans up audio analysers and removes the mixer panel from DOM
+     */
     function dispose() {
         // Clean up analysers
         analysers.forEach(analyser => {
