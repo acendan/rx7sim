@@ -147,7 +147,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
             position: absolute;
             left: 0; top: 0;
             ">
-            <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <svg width="36" height="36" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
             <!-- Bulb -->
             <path d="M18 36 A6 6 0 0 1 18 12" fill="none" stroke="#fff" stroke-width="2.2"/>
             <line x1="18" y1="12" x2="18" y2="36" stroke="#fff" stroke-width="2.2"/>
@@ -162,20 +162,20 @@ export function createControls({ initVisible = false, initIgnition = false, init
         `
         Object.assign(headlightsBtn.style, {
             display: 'block',
-            margin: '8px 0',
+            margin: '12px auto 0 auto', // top margin, auto left/right for centering
             padding: '0',
-            width: '75px',
-            height: '38px',
-            borderRadius: '12px',
+            width: '56px',
+            height: '28px',
+            borderRadius: '10px',
             background: 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)', // dark grey
             border: '2px solid #fff',
             boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
             cursor: 'pointer',
             color: '#fff',
             fontFamily: 'inherit',
-            fontSize: '16px',
+            fontSize: '14px',
             textAlign: 'center',
-            lineHeight: '16px',
+            lineHeight: '14px',
             position: 'relative',
             transition: 'background 0.2s',
             overflow: 'hidden'
@@ -184,16 +184,16 @@ export function createControls({ initVisible = false, initIgnition = false, init
         function updateHeadlightsButton() {
             const beamsPath = headlightsBtn.querySelector('.headlight-beams')
             if (headlightsOn) {
-                beamsPath.setAttribute('stroke', '#ff0')
-                beamsPath.style.opacity = '1'
-                headlightsBtn.style.background = 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)' // slightly lighter dark grey
+            beamsPath.setAttribute('stroke', '#ff0')
+            beamsPath.style.opacity = '1'
+            headlightsBtn.style.background = 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)' // slightly lighter dark grey
             } else {
-                beamsPath.setAttribute('stroke', '#888')
-                beamsPath.style.opacity = '0.5'
-                headlightsBtn.style.background = 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)' // dark grey
+            beamsPath.setAttribute('stroke', '#888')
+            beamsPath.style.opacity = '0.5'
+            headlightsBtn.style.background = 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)' // dark grey
             }
             if (headlightsCallback) {
-                headlightsCallback(headlightsOn)
+            headlightsCallback(headlightsOn)
             }
         }
         // Initialize button state
