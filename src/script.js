@@ -8,13 +8,33 @@ import * as dat from 'lil-gui'
 THREE.ColorManagement.enabled = false
 
 import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
-import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser } from './systems/helpers.js'
+import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser, checkWebGLSupport, checkWebAudioSupport, showErrorUI, showLoadingUI, loadGLTFModel, loadAudioFile, loadHDRTexture } from './systems/helpers.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
 
 import { particleSystem } from './systems/exhaust.js'
 import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton, createAudioEmitterDebugger } from './systems/helpers.js'
 import { createMixer } from './systems/meters.js'
+
+// Import audio context resume helper
+import { resumeAudioContext } from './systems/helpers.js'
+
+/**
+ * Feature Detection & Browser Compatibility Check
+ */
+// Check WebGL support
+const webglCheck = checkWebGLSupport()
+if (!webglCheck.available) {
+    showErrorUI('WebGL Not Supported', webglCheck.error, true)
+    throw new Error(webglCheck.error)
+}
+
+// Check Web Audio API support
+const audioCheck = checkWebAudioSupport()
+if (!audioCheck.available) {
+    showErrorUI('Web Audio Not Supported', audioCheck.error, true)
+    throw new Error(audioCheck.error)
+}
 
 /**
  * Setup
@@ -132,7 +152,7 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
     const path = typeof preset === 'string' ? preset : preset.path
     const reverbPreset = typeof preset === 'object' ? preset.reverb : null
 
-    rgbeLoader.load(path, (texture) => {
+    loadHDRTexture(rgbeLoader, path).then((texture) => {
         // Dispose previous texture if any
         if (currentHDRTexture) {
             disposeTexture(currentHDRTexture)
@@ -164,13 +184,18 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
                     const { path: reverbPath, blend = 0.5, scalingFactor = 1.0 } = reverbMapEntry
                     soundEngine.currentReverbBlend = blend
                     soundEngine.currentReverbScalingFactor = scalingFactor
-                    const reverbLoader = new THREE.AudioLoader()
-                    reverbLoader.load(reverbPath, (buffer) => {
+                    loadAudioFile(new THREE.AudioLoader(), reverbPath).then((buffer) => {
                         soundEngine.applyConvolutionReverb(buffer)
+                    }).catch(err => {
+                        console.error('Failed to load reverb:', err)
+                        showErrorUI('Reverb Load Failed', `Could not load reverb: ${err.message}`, false)
                     })
                 }
             }
         }
+    }).catch(err => {
+        console.error('Failed to load HDR:', err)
+        showErrorUI('HDR Load Failed', `Could not load environment: ${err.message}`, false)
     })
 })
 
@@ -217,6 +242,191 @@ let anims = {
     lights: () => { anims.mixerLights.stopAllAction(), anims.lightsTimeScaleToggle(), anims.actLights0.play(), anims.actLights1.play(), anims.actLights2.play(), anims.actLights3.play(), anims.actLights4.play() }
 }
 
+/**
+ * Async initialization to load all models with error handling
+ */
+async function initializeModels() {
+    const loadingUI = showLoadingUI('Loading models...')
+    
+    try {
+        // Load all models in parallel
+        loadingUI.update('Loading car model...')
+        const [gltfCar, gltfWheels, gltfLights] = await Promise.all([
+            loadGLTFModel(gltfLoader, './model/rx7/rx7.gltf'),
+            loadGLTFModel(gltfLoader, './model/rx7_wheels/rx7_wheels.gltf'),
+            loadGLTFModel(gltfLoader, './model/rx7_lights/rx7_lights.gltf')
+        ])
+
+        loadingUI.update('Setting up scene...')
+
+        // Setup car
+        gltfCar.scene.scale.set(1.0, 1.0, 1.0)
+        carGroup.add(gltfCar.scene)
+        particleSystem.initialize()
+
+        // Setup wheels
+        gltfWheels.scene.scale.set(1.0, 1.0, 1.0)
+        gltfWheels.scene.position.set(0, 0, 0)
+        carGroup.add(gltfWheels.scene)
+
+        const wheelFL = gltfWheels.scene.clone()
+        wheelFL.position.set(0, 0, 2.45)
+        carGroup.add(wheelFL)
+
+        const wheelFR = gltfWheels.scene.clone()
+        wheelFR.position.set(0, 0, 2.45)
+        wheelFR.scale.set(-1, 1, 1)
+        carGroup.add(wheelFR)
+
+        const wheelRR = gltfWheels.scene.clone()
+        wheelRR.position.set(0, 0, 0)
+        wheelRR.scale.set(-1, 1, 1)
+        carGroup.add(wheelRR)
+
+        // Wheel animations
+        anims.mixerWheels = new THREE.AnimationMixer(new THREE.AnimationObjectGroup(gltfWheels.scene, wheelFL, wheelFR, wheelRR))
+        anims.actWheelsRot = anims.mixerWheels.clipAction(gltfWheels.animations[0])
+        anims.actTiresRot = anims.mixerWheels.clipAction(gltfWheels.animations[1])
+
+        // Setup lights
+        gltfLights.scene.scale.set(1.0, 1.0, 1.0)
+        carGroup.add(gltfLights.scene)
+
+        // Light animations
+        anims.mixerLights = new THREE.AnimationMixer(gltfLights.scene)
+        for (let i = 0; i < 5; i++) {
+            const key = `actLights${i}`
+            anims[key] = anims.mixerLights.clipAction(gltfLights.animations[i])
+            anims[key].setLoop(THREE.LoopOnce)
+            anims[key].clampWhenFinished = true
+        }
+
+        // Spotlights
+        const { left: headLightL, right: headLightR } = createHeadlightSpots({ intensity: anims.lightsIntensity })
+        anims.headLightL = headLightL
+        anims.headLightR = headLightR
+        carGroup.add(anims.headLightL)
+        carGroup.add(anims.headLightL.target)
+        carGroup.add(anims.headLightR)
+        carGroup.add(anims.headLightR.target)
+
+        // Debug UI for headlights
+        dbgVehicle.add(anims, 'lights').name('Headlights')
+
+        // Solo buttons
+        setupSoloButtons(gltfCar.scene)
+
+        loadingUI.remove()
+        console.log('✓ All models loaded')
+    } catch (error) {
+        loadingUI.remove()
+        console.error('Failed to load models:', error)
+        showErrorUI(
+            'Failed to Load Models',
+            `Could not load required 3D models. Please check your connection and refresh the page.\n\nError: ${error.message}`,
+            false
+        )
+    }
+}
+
+/**
+ * Setup solo buttons for audio perspectives
+ */
+function setupSoloButtons(carScene) {
+    const intakeSoloBtn = createLineButton({ 
+        screenAnchor: new THREE.Vector2(-0.5, -0.8), 
+        targetLocalPos: new THREE.Vector3(0, 0.2, 2.1), 
+        targetObject: carScene, 
+        label: 'Intake', 
+        color: SoloBtnColors.INTAKE 
+    })
+    const exhaustSoloBtn = createLineButton({ 
+        screenAnchor: new THREE.Vector2(0.5, -0.8), 
+        targetLocalPos: new THREE.Vector3(-0.5, 0.3, -2.0), 
+        targetObject: carScene, 
+        label: 'Exhaust', 
+        color: SoloBtnColors.EXHAUST 
+    })
+    const interiorSoloBtn = createLineButton({ 
+        screenAnchor: new THREE.Vector2(0.0, -0.8), 
+        targetLocalPos: new THREE.Vector3(0.0, 0.1, -0.2), 
+        targetObject: carScene, 
+        label: 'Interior', 
+        color: SoloBtnColors.INTERIOR 
+    })
+
+    // Add lines to scene and store buttons for updates
+    ;[intakeSoloBtn, exhaustSoloBtn, interiorSoloBtn].forEach(btn => {
+        scene.add(btn.line)
+        lineButtons.push(btn)
+
+        // Solo button click event
+        btn.button.addEventListener('click', () => {
+            // Clicked same button again: reset to no solo
+            if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
+                soloState = SoloState.MIX
+
+                // Reset all button styles
+                lineButtons.forEach(otherBtn => {
+                    if (otherBtn !== btn) {
+                        otherBtn.button.style.backgroundColor = colorToHex(SoloBtnColors[otherBtn.button.textContent.toUpperCase()])
+                        otherBtn.button.style.color = `#272727ff`
+                        otherBtn.line.visible = true
+                        otherBtn.button.dimmed = false
+                    }
+                })
+
+                // If emitter debuggers are visible, ensure emitterDebuggers are all visible
+                if (dbgAudioSettings['Emitters']) {
+                    emitterDebuggers.forEach(helper => helper.visible = true)
+                }
+            } else {
+                // New solo button selected
+                soloState = SoloState[btn.button.textContent.toUpperCase()]
+
+                // Darken background color of other buttons
+                lineButtons.forEach(otherBtn => {
+                    if (otherBtn !== btn) {
+                        otherBtn.button.style.backgroundColor = `#444444`
+                        otherBtn.button.style.color = `#888888`
+                        otherBtn.line.visible = false
+                        otherBtn.button.dimmed = true
+
+                        // If emitter debuggers are visible, hide non-solo emitter debuggers
+                        if (dbgAudioSettings['Emitters']) {
+                            const posKey = otherBtn.button.textContent.toLowerCase()
+                            const helper = emitterDebuggers.get(posKey)
+                            if (helper) helper.visible = false
+                        }
+                    } else {
+                        otherBtn.button.style.color = `#272727ff`
+                        otherBtn.line.visible = true
+                        otherBtn.button.dimmed = false
+
+                        // If emitter debuggers are visible, ensure this one is visible
+                        if (dbgAudioSettings['Emitters']) {
+                            const posKey = otherBtn.button.textContent.toLowerCase()
+                            const helper = emitterDebuggers.get(posKey)
+                            if (helper) helper.visible = true
+                        }
+                    }
+                })
+            }
+        })
+    })
+
+    // Line button visibility
+    const buttonVisibility = { 'Solo Buttons': true }
+    dbgAudioMicPersp = dbgAudio.add(buttonVisibility, 'Solo Buttons').onChange(visible => {
+        intakeSoloBtn.setVisible(visible)
+        exhaustSoloBtn.setVisible(visible)
+        interiorSoloBtn.setVisible(visible)
+    })
+}
+
+// Legacy callback-based loading (now replaced by async initializeModels)
+// Keeping commented for reference in case of rollback needed
+/*
 // Car
 gltfLoader.load('./model/rx7/rx7.gltf',
     (gltfCar) => {
@@ -367,7 +577,12 @@ gltfLoader.load('./model/rx7_lights/rx7_lights.gltf',
         dbgVehicle.add(anims, 'lights').name('Headlights')
     }
 )
+*/
 
+// Call the new async initialization
+initializeModels().catch(err => {
+    console.error('Critical error during model initialization:', err)
+})
 
 /**
  * Lighting (uses defaults from constants)
@@ -506,6 +721,10 @@ resetLightingFromSnapshot()
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
+// Handle audio context state and autoplay policy
+const audioContext = listener.context
+let audioEnabled = false
+
 // Audio emitters for each position
 const audioEmitters = {
     mix: new THREE.PositionalAudio(listener),
@@ -601,6 +820,16 @@ const soundEngine = {
     },
 
     ignitionOn: () => {
+        // Resume audio context on first user interaction (handles autoplay policy)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                audioEnabled = true
+                console.log('Audio context enabled via user interaction')
+            }).catch(err => {
+                console.error('Failed to resume audio context:', err)
+            })
+        }
+
         // Start ignition for all positions
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
             if (pos === 'mix') return; // No ignition sound for mix
@@ -654,15 +883,33 @@ const soundEngine = {
 
     load() {
         // Cache buffers for all positions
-        const engine = this; // Store reference to soundEngine
+        const engine = this
+        const loadPromises = []
+        
         Object.keys(engine.buffers).forEach(pos => {
             Object.keys(engine.buffers[pos]).forEach(key => {
-                audioLoader.load(`./audio/${pos}/${key}.ogg`,
-                    (buffer) => { engine.buffers[pos][key] = buffer });
+                const promise = loadAudioFile(audioLoader, `./audio/${pos}/${key}.ogg`)
+                    .then(buffer => {
+                        engine.buffers[pos][key] = buffer
+                    })
+                    .catch(err => {
+                        console.error(`Failed to load audio ${pos}/${key}:`, err)
+                        // Non-blocking error for individual audio files
+                    })
+                loadPromises.push(promise)
+            })
+        })
 
-                console.log(`Loaded Audio - ${pos}: ${key}`);
-            });
-        });
+        // Wait for all audio to load
+        Promise.all(loadPromises).then(() => {
+            console.log('✓ All audio files loaded')
+        }).catch(() => {
+            showErrorUI(
+                'Audio Load Warning',
+                'Some audio files failed to load. The experience may be incomplete.',
+                false
+            )
+        })
     },
 
     applyConvolutionReverb(reverbBuffer) {
@@ -746,9 +993,11 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
     const { path, blend = 0.5, scalingFactor = 1.0 } = preset
     soundEngine.currentReverbBlend = blend
     soundEngine.currentReverbScalingFactor = scalingFactor
-    const reverbLoader = new THREE.AudioLoader()
-    reverbLoader.load(path, (buffer) => {
+    loadAudioFile(new THREE.AudioLoader(), path).then((buffer) => {
         soundEngine.applyConvolutionReverb(buffer)
+    }).catch(err => {
+        console.error('Failed to load reverb:', err)
+        showErrorUI('Reverb Load Failed', `Could not load reverb preset: ${err.message}`, false)
     })
 })
 

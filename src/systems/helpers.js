@@ -3,6 +3,321 @@ import { ConeEmitterSettings } from './constants.js'
 // Note: colorToHex is defined below; forward usage inside file is fine.
 
 /**
+ * Check if WebGL is available and supported
+ * @returns {Object} { available: boolean, error: string|null }
+ */
+export function checkWebGLSupport() {
+    try {
+        const canvas = document.createElement('canvas')
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+        
+        if (!gl) {
+            return { 
+                available: false, 
+                error: 'WebGL is not supported by your browser or graphics driver.' 
+            }
+        }
+
+        // Check for required extensions
+        const requiredExtensions = ['OES_element_index_uint']
+        for (const ext of requiredExtensions) {
+            if (!gl.getExtension(ext)) {
+                return { 
+                    available: false, 
+                    error: `WebGL extension ${ext} is not supported.` 
+                }
+            }
+        }
+
+        return { available: true, error: null }
+    } catch (err) {
+        return { 
+            available: false, 
+            error: `WebGL check failed: ${err.message}` 
+        }
+    }
+}
+
+/**
+ * Check if Web Audio API is available
+ * @returns {Object} { available: boolean, error: string|null }
+ */
+export function checkWebAudioSupport() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext
+        if (!AudioContext) {
+            return { 
+                available: false, 
+                error: 'Web Audio API is not supported by your browser.' 
+            }
+        }
+        return { available: true, error: null }
+    } catch (err) {
+        return { 
+            available: false, 
+            error: `Web Audio API check failed: ${err.message}` 
+        }
+    }
+}
+
+/**
+ * Create and display an error overlay with a message
+ * @param {string} title - Error title
+ * @param {string} message - Error message
+ * @param {boolean} blocking - Whether this error prevents the app from running
+ */
+export function showErrorUI(title, message, blocking = true) {
+    // Remove existing error overlay if any
+    const existing = document.getElementById('error-overlay')
+    if (existing) {
+        existing.remove()
+    }
+
+    const overlay = document.createElement('div')
+    overlay.id = 'error-overlay'
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: blocking ? 'rgba(0, 0, 0, 0.95)' : 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '99999',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        color: '#fff',
+        padding: '20px',
+        boxSizing: 'border-box'
+    })
+
+    const container = document.createElement('div')
+    Object.assign(container.style, {
+        maxWidth: '500px',
+        backgroundColor: '#1a1a1a',
+        borderRadius: '12px',
+        padding: '32px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+        border: '1px solid #333'
+    })
+
+    const titleEl = document.createElement('h2')
+    titleEl.textContent = title
+    Object.assign(titleEl.style, {
+        margin: '0 0 16px 0',
+        fontSize: '24px',
+        fontWeight: '600',
+        color: '#ff6b6b'
+    })
+
+    const messageEl = document.createElement('p')
+    messageEl.textContent = message
+    Object.assign(messageEl.style, {
+        margin: '0 0 24px 0',
+        fontSize: '16px',
+        lineHeight: '1.6',
+        color: '#ccc'
+    })
+
+    container.appendChild(titleEl)
+    container.appendChild(messageEl)
+
+    if (!blocking) {
+        const closeBtn = document.createElement('button')
+        closeBtn.textContent = 'Dismiss'
+        Object.assign(closeBtn.style, {
+            backgroundColor: '#444',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '12px 24px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            fontWeight: '500'
+        })
+        closeBtn.addEventListener('click', () => overlay.remove())
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.backgroundColor = '#555')
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.backgroundColor = '#444')
+        container.appendChild(closeBtn)
+    }
+
+    overlay.appendChild(container)
+    document.body.appendChild(overlay)
+}
+
+/**
+ * Show a loading overlay with progress
+ * @param {string} message - Loading message
+ * @returns {Object} { update: (message) => void, remove: () => void }
+ */
+export function showLoadingUI(message = 'Loading...') {
+    // Remove existing loading overlay if any
+    const existing = document.getElementById('loading-overlay')
+    if (existing) {
+        existing.remove()
+    }
+
+    const overlay = document.createElement('div')
+    overlay.id = 'loading-overlay'
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '99998',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        color: '#fff'
+    })
+
+    const container = document.createElement('div')
+    Object.assign(container.style, {
+        textAlign: 'center'
+    })
+
+    const spinner = document.createElement('div')
+    Object.assign(spinner.style, {
+        width: '50px',
+        height: '50px',
+        margin: '0 auto 20px',
+        border: '4px solid #333',
+        borderTop: '4px solid #fff',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+    })
+
+    const messageEl = document.createElement('div')
+    messageEl.textContent = message
+    Object.assign(messageEl.style, {
+        fontSize: '16px',
+        color: '#ccc'
+    })
+
+    // Add keyframe animation for spinner
+    if (!document.getElementById('spinner-style')) {
+        const style = document.createElement('style')
+        style.id = 'spinner-style'
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `
+        document.head.appendChild(style)
+    }
+
+    container.appendChild(spinner)
+    container.appendChild(messageEl)
+    overlay.appendChild(container)
+    document.body.appendChild(overlay)
+
+    return {
+        update: (newMessage) => {
+            messageEl.textContent = newMessage
+        },
+        remove: () => {
+            overlay.remove()
+        }
+    }
+}
+
+/**
+ * Ensure audio context is resumed (handles autoplay policy)
+ * @param {AudioContext} audioContext - The audio context to resume
+ * @returns {Promise<boolean>} Resolves to true if resumed successfully
+ */
+export async function resumeAudioContext(audioContext) {
+    if (!audioContext) return false
+
+    if (audioContext.state === 'suspended') {
+        try {
+            await audioContext.resume()
+            return true
+        } catch (err) {
+            console.error('Failed to resume audio context:', err)
+            return false
+        }
+    }
+    
+    return audioContext.state === 'running'
+}
+
+/**
+ * Load a GLTF model with error handling
+ * @param {GLTFLoader} loader - The GLTF loader instance
+ * @param {string} path - Path to the model
+ * @param {Function} onProgress - Optional progress callback
+ * @returns {Promise<Object>} Resolves with loaded GLTF object
+ */
+export function loadGLTFModel(loader, path, onProgress = null) {
+    return new Promise((resolve, reject) => {
+        loader.load(
+            path,
+            (gltf) => {
+                console.log(`✓ Loaded model: ${path}`)
+                resolve(gltf)
+            },
+            onProgress,
+            (error) => {
+                console.error(`✗ Failed to load model: ${path}`, error)
+                reject(new Error(`Failed to load model ${path}: ${error.message}`))
+            }
+        )
+    })
+}
+
+/**
+ * Load an audio file with error handling
+ * @param {AudioLoader} loader - The audio loader instance
+ * @param {string} path - Path to the audio file
+ * @returns {Promise<AudioBuffer>} Resolves with loaded audio buffer
+ */
+export function loadAudioFile(loader, path) {
+    return new Promise((resolve, reject) => {
+        loader.load(
+            path,
+            (buffer) => {
+                console.log(`✓ Loaded audio: ${path}`)
+                resolve(buffer)
+            },
+            null,
+            (error) => {
+                console.error(`✗ Failed to load audio: ${path}`, error)
+                reject(new Error(`Failed to load audio ${path}: ${error.message}`))
+            }
+        )
+    })
+}
+
+/**
+ * Load an HDRI texture with error handling
+ * @param {RGBELoader} loader - The RGBE loader instance
+ * @param {string} path - Path to the HDR file
+ * @returns {Promise<Texture>} Resolves with loaded texture
+ */
+export function loadHDRTexture(loader, path) {
+    return new Promise((resolve, reject) => {
+        loader.load(
+            path,
+            (texture) => {
+                console.log(`✓ Loaded HDR: ${path}`)
+                resolve(texture)
+            },
+            null,
+            (error) => {
+                console.error(`✗ Failed to load HDR: ${path}`, error)
+                reject(new Error(`Failed to load HDR ${path}: ${error.message}`))
+            }
+        )
+    })
+}
+
+/**
  * Recursively dispose of Three.js object and all its children
  * Cleans up geometries, materials, textures, and render targets
  * @param {THREE.Object3D} object - Object to dispose
@@ -310,10 +625,8 @@ export function playPositionalAudio(audioLoader, emitter, path, { store = null, 
             if (typeof volume === 'number' && emitter.setVolume) emitter.setVolume(volume)
             if (onEnded) emitter.onEnded = onEnded
             emitter.play()
-        } catch (e) {
-            // Defensive: if emitter is not ready, log and ignore
-            // (caller should ensure emitter is attached to listener)
-            // console.warn('playPositionalAudio: emitter playback failed', e)
+        } catch (err) {
+            console.error('Failed to play positional audio:', err)
         }
     }
 
@@ -322,11 +635,11 @@ export function playPositionalAudio(audioLoader, emitter, path, { store = null, 
         return
     }
 
-    audioLoader.load(path, (buffer) => {
-        console.log(`Loaded Audio - ${pos}: ${key}`)
-        
+    loadAudioFile(audioLoader, path).then(buffer => {
         if (store && storeKey) store[storeKey] = buffer
         playBuffer(buffer)
+    }).catch(err => {
+        console.error('Failed to load and play audio:', path, err)
     })
 }
 
