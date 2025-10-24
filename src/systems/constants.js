@@ -45,11 +45,42 @@ export const LightingDefaults = {
     ]
 }
 
+// HDRI environment presets with associated reverb and lighting overrides
+export const EnvironmentPresets = {
+    'Garage': {
+        path: './hdri/garage.hdr',
+        reverb: 'Garage',
+        lighting: {
+            ambient: { color: 0xf0f0f0, intensity: 0.2 },
+            hemisphere: { skyColor: 0xc0c0c0, groundColor: 0x3a3a3a, intensity: 0.15 },
+            directional: [
+                { color: 0xbcd4ff, intensity: 1.5 },
+                { color: 0xffddaa, intensity: 0.5 },
+                { color: 0x888888, intensity: 0.1 }
+            ]
+        }
+    },
+    'Track': {
+        path: './hdri/track.hdr',
+        reverb: 'Outdoors',
+        lighting: {
+            ambient: { color: 0xfff693, intensity: 0.25 },
+            hemisphere: { skyColor: 0xcce6ff, groundColor: 0x5a5a5a, intensity: 0.15 },
+            directional: [
+                { color: 0xffffff, intensity: 0.1 },
+                { color: 0xfff2d1, intensity: 0.1 },
+                { color: 0xaaccff, intensity: 0.0 }
+            ]
+        }
+    }
+}
+
 export default {
     DriveState,
     SoloState,
     SoloBtnColors,
     EmitterVolMults,
     ConeEmitterSettings,
-    LightingDefaults
+    LightingDefaults,
+    EnvironmentPresets
 }

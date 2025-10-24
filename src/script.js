@@ -7,7 +7,7 @@ import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
 
-import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults } from './systems/constants.js'
+import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
 import { colorToHex } from './systems/helpers.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
@@ -77,40 +77,11 @@ scene.add(floor)
  * HDRIs
  */
 
-const hdris = {
-    'Garage': {
-        path: './hdri/garage.hdr',
-        reverb: 'Garage',
-        lighting: {
-            ambient: { color: 0xf0f0f0, intensity: 0.2 },
-            hemisphere: { skyColor: 0xc0c0c0, groundColor: 0x3a3a3a, intensity: 0.15 },
-            directional: [
-                { color: 0xbcd4ff, intensity: 1.5 },
-                { color: 0xffddaa, intensity: 0.5 },
-                { color: 0x888888, intensity: 0.1 }
-            ]
-        }
-    },
-    'Track': {
-        path: './hdri/track.hdr',
-        reverb: 'Outdoors',
-        lighting: {
-            ambient: { color: 0xfff693, intensity: 0.25 },
-            hemisphere: { skyColor: 0xcce6ff, groundColor: 0x5a5a5a, intensity: 0.15 },
-            directional: [
-                { color: 0xffffff, intensity: 0.1 },
-                { color: 0xfff2d1, intensity: 0.1 },
-                { color: 0xaaccff, intensity: 0.0 }
-            ]
-        }
-    }
-}
-
 // Keep reference to the original background so "None" can restore it
 const originalBackground = scene.background ? scene.background.clone() : new THREE.Color(0xa0a0a0)
 let currentHDRTexture = null
 
-const hdrOptions = ['None', ...Object.keys(hdris)]
+const hdrOptions = ['None', ...Object.keys(EnvironmentPresets)]
 const hdrParams = { HDR: 'None' }
 dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Select').onChange(name => {
     if (name === 'None') {
@@ -154,7 +125,7 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
         return
     }
 
-    const preset = hdris[name]
+    const preset = EnvironmentPresets[name]
     if (!preset) return
     
     // Handle both old string format and new object format
