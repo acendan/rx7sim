@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { HDRCubeTextureLoader  } from 'three/examples/jsm/loaders/HDRCubeTextureLoader.js'
 import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
@@ -33,6 +35,7 @@ const dbgAudioSettings = {
     'Emitters': false
 }
 const dbgAudio = dbg.addFolder('Audio')
+let dbgAudioReverb = null
 let dbgAudioMeters = null
 let dbgAudioEmitters = null
 let dbgAudioMicPersp = null
@@ -50,7 +53,9 @@ let dbgVehIgnOff = null
 
 // Loaders
 const gltfLoader = new GLTFLoader()
-const audioLoader = new THREE.AudioLoader();
+const audioLoader = new THREE.AudioLoader()
+const rgbeLoader = new RGBELoader()
+const hdrCubeLoader = new HDRCubeTextureLoader()
 
 /**
  * Floor
@@ -66,6 +71,88 @@ const floor = new THREE.Mesh(
 floor.receiveShadow = true
 floor.rotation.x = - Math.PI * 0.5
 scene.add(floor)
+
+/**
+ * HDRIs
+ */
+
+const hdris = {
+    'Underpass': { 
+        path: './hdri/underpass.hdr',
+        reverb: 'Parking Garage' // Optional: name of reverb preset to auto-select
+    }
+}
+
+// Keep reference to the original background so "None" can restore it
+const originalBackground = scene.background ? scene.background.clone() : new THREE.Color(0xa0a0a0)
+let currentHDRTexture = null
+
+const hdrOptions = ['None', ...Object.keys(hdris)]
+const hdrParams = { HDR: 'None' }
+dbg.add(hdrParams, 'HDR', hdrOptions).name('Level').onChange(name => {
+    if (name === 'None') {
+        // Dispose previously loaded HDR texture and restore defaults
+        if (currentHDRTexture) {
+            try { currentHDRTexture.dispose() } catch (_) {}
+            currentHDRTexture = null
+        }
+        scene.background = originalBackground.clone ? originalBackground.clone() : originalBackground
+        scene.environment = null
+        floor.visible = true
+
+        // Remove reverb
+        soundEngine.removeConvolutionReverb()
+        reverbParams.Reverb = 'None'
+        if (dbgAudioReverb) {
+            dbgAudioReverb.updateDisplay()
+        }
+
+        return
+    }
+
+    const preset = hdris[name]
+    if (!preset) return
+    
+    // Handle both old string format and new object format
+    const path = typeof preset === 'string' ? preset : preset.path
+    const reverbPreset = typeof preset === 'object' ? preset.reverb : null
+
+    rgbeLoader.load(path, (texture) => {
+        // Dispose previous texture if any
+        if (currentHDRTexture) {
+            try { currentHDRTexture.dispose() } catch (_) {}
+        }
+
+        texture.mapping = THREE.EquirectangularReflectionMapping
+        currentHDRTexture = texture
+
+        scene.background = texture
+        scene.environment = texture
+
+        // Hide floor when HDRI is active
+        floor.visible = false
+
+        // Auto-select associated reverb if specified
+        if (reverbPreset && reverbParams) {
+            reverbParams.Reverb = reverbPreset
+            // Trigger reverb load by finding and calling the controller's onChange
+            if (dbgAudioReverb) {
+                dbgAudioReverb.updateDisplay()
+                // Manually trigger the reverb loading logic
+                const reverbMapEntry = reverbMap[reverbPreset]
+                if (reverbMapEntry) {
+                    const { path: reverbPath, blend = 0.5 } = reverbMapEntry
+                    soundEngine.currentReverbBlend = blend
+                    const reverbLoader = new THREE.AudioLoader()
+                    reverbLoader.load(reverbPath, (buffer) => {
+                        soundEngine.applyConvolutionReverb(buffer)
+                    })
+                }
+            }
+        }
+    })
+})
+
 
 /**
  * Objects
@@ -534,17 +621,9 @@ const soundEngine = {
 
             emitter._reverbNodes = { convolver, wetGain, dryGain }
         })
-    }
-}
-soundEngine.load()
+    },
 
-// Convolution reverb presets with blend (0..1 wet mix)
-const reverbMap = {
-    'Parking Garage': { path: './audio/ir/parkingGarage.ogg', blend: 0.6 }
-}
-const reverbParams = { Reverb: 'None' }
-dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Conv. Reverb').onChange(name => {
-    if (name === 'None') {
+    removeConvolutionReverb() {
         // Remove custom filter graph (disconnect reverb nodes)
         Object.values(audioEmitters).forEach(em => {
             if (em._reverbNodes) {
@@ -555,7 +634,19 @@ dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('
                 em._reverbNodes = null
             }
         })
-        soundEngine.currentReverbBlend = null
+        this.currentReverbBlend = null
+    }
+}
+soundEngine.load()
+
+// Convolution reverb presets with blend (0..1 wet mix)
+const reverbMap = {
+    'Parking Garage': { path: './audio/ir/parkingGarage.ogg', blend: 0.6 }
+}
+const reverbParams = { Reverb: 'None' }
+dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(reverbMap)]).name('Conv. Reverb').onChange(name => {
+    if (name === 'None') {
+        soundEngine.removeConvolutionReverb()
         return
     }
     const preset = reverbMap[name]
