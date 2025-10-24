@@ -694,61 +694,75 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
 
     // Track visibility state
     let isVisible = true
+    
+    // Cache frequently accessed values
+    const _ndc = new THREE.Vector3()
+    const _dir = new THREE.Vector3()
+    const _startPoint = new THREE.Vector3()
+    const _targetWorld = new THREE.Vector3()
+    const _rayDir = new THREE.Vector3()
+    const _endPoint = new THREE.Vector3()
+    const _proj = new THREE.Vector3()
+    let _canvas = null
+    let _canvasRect = null
+    let _frameCount = 0
 
     // Update function to be called each frame
     function update(camera) {
+        // Cache canvas rect every 30 frames to avoid constant DOM queries
+        if (_frameCount % 30 === 0 || !_canvas) {
+            _canvas = document.querySelector('canvas.webgl')
+            if (_canvas) {
+                _canvasRect = _canvas.getBoundingClientRect()
+            }
+        }
+        _frameCount++
+        
         // Compute world start point from screenAnchor (NDC) at z = 0.5
-        const ndc = new THREE.Vector3(screenAnchor.x, screenAnchor.y, 0.5)
-        ndc.unproject(camera)
-        const dir = ndc.clone().sub(camera.position).normalize()
+        _ndc.set(screenAnchor.x, screenAnchor.y, 0.5)
+        _ndc.unproject(camera)
+        _dir.copy(_ndc).sub(camera.position).normalize()
         // set a reasonable distance for the start point along the ray (near camera)
-        const startPoint = camera.position.clone().add(dir.clone().multiplyScalar(1.0))
+        _startPoint.copy(camera.position).add(_dir.multiplyScalar(1.0))
 
         // Compute target world position from targetLocalPos / targetObject
-        let targetWorld = new THREE.Vector3()
         if (targetObject) {
-            targetWorld.copy(targetLocalPos)
-            targetObject.localToWorld(targetWorld)
+            _targetWorld.copy(targetLocalPos)
+            targetObject.localToWorld(_targetWorld)
         } else {
-            targetWorld.copy(targetLocalPos)
+            _targetWorld.copy(targetLocalPos)
         }
 
         // Raycast from camera towards targetWorld to find intersection with targetObject (car)
-        const rayDir = targetWorld.clone().sub(camera.position).normalize()
-        raycaster.set(camera.position, rayDir)
-        let endPoint = targetWorld.clone()
+        _rayDir.copy(_targetWorld).sub(camera.position).normalize()
+        raycaster.set(camera.position, _rayDir)
+        _endPoint.copy(_targetWorld)
+        
         if (targetObject) {
             const hits = raycaster.intersectObject(targetObject, true)
             if (hits && hits.length > 0) {
-                endPoint.copy(hits[0].point)
-            } else {
-                // fallback: use targetWorld
-                endPoint.copy(targetWorld)
+                _endPoint.copy(hits[0].point)
             }
         }
 
         // Update line geometry positions (startPoint -> endPoint)
         const posAttr = line.geometry.attributes.position
-        posAttr.setXYZ(0, startPoint.x, startPoint.y, startPoint.z)
-        posAttr.setXYZ(1, endPoint.x, endPoint.y, endPoint.z)
+        posAttr.setXYZ(0, _startPoint.x, _startPoint.y, _startPoint.z)
+        posAttr.setXYZ(1, _endPoint.x, _endPoint.y, _endPoint.z)
         posAttr.needsUpdate = true
 
         // Update DOM button position at the line's start point
-        if (domButton) {
-            const proj = startPoint.clone().project(camera)
+        if (domButton && _canvasRect) {
+            _proj.copy(_startPoint).project(camera)
             // Hide if behind camera or offscreen
-            if (!isVisible || proj.z > 1 || proj.z < -1 || proj.x < -1.2 || proj.x > 1.2 || proj.y < -1.2 || proj.y > 1.2) {
+            if (!isVisible || _proj.z > 1 || _proj.z < -1 || _proj.x < -1.2 || _proj.x > 1.2 || _proj.y < -1.2 || _proj.y > 1.2) {
                 domButton.style.display = 'none'
             } else {
                 domButton.style.display = ''
-                const canvas = document.querySelector('canvas.webgl')
-                if (canvas) {
-                    const rect = canvas.getBoundingClientRect()
-                    const x = (proj.x * 0.5 + 0.5) * rect.width + rect.left
-                    const y = (-proj.y * 0.5 + 0.5) * rect.height + rect.top
-                    domButton.style.left = `${x}px`
-                    domButton.style.top = `${y}px`
-                }
+                const x = (_proj.x * 0.5 + 0.5) * _canvasRect.width + _canvasRect.left
+                const y = (-_proj.y * 0.5 + 0.5) * _canvasRect.height + _canvasRect.top
+                domButton.style.left = `${x}px`
+                domButton.style.top = `${y}px`
             }
         }
     }

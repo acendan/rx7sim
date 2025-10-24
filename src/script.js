@@ -15,6 +15,7 @@ var soloState = SoloState.MIX
 import { particleSystem } from './systems/exhaust.js'
 import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton, createAudioEmitterDebugger } from './systems/helpers.js'
 import { createMixer } from './systems/meters.js'
+import { createPerformanceMonitor } from './systems/stats.js'
 
 // Import audio context resume helper
 import { resumeAudioContext } from './systems/helpers.js'
@@ -72,6 +73,12 @@ let dbgVehLevelSelect = null
 let dbgVehCarSelect = null
 let dbgVehIgnOn = null
 let dbgVehIgnOff = null
+
+const dbgPerformance = dbg.addFolder('Performance')
+const dbgPerfSettings = {
+    'Show Stats': false
+}
+let dbgPerfStats = null
 
 // Axes
 // const axes = new THREE.AxesHelper(1)
@@ -1052,6 +1059,10 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
 
+// Add performance monitor
+const perfMonitor = createPerformanceMonitor({ initialVisible: false })
+dbgPerfStats = dbgPerformance.add(dbgPerfSettings, 'Show Stats').onChange(v => perfMonitor.setVisible(v))
+
 // Create emitter position debuggers (initially hidden)
 const emitterDebuggers = new Map()
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
@@ -1124,6 +1135,11 @@ function disposeAll() {
         audioMeters.dispose()
     }
 
+    // Clean up performance monitor
+    if (perfMonitor && perfMonitor.dispose) {
+        perfMonitor.dispose()
+    }
+
     // Clean up audio emitters
     Object.values(audioEmitters).forEach(emitter => {
         disposeAudioEmitter(emitter)
@@ -1186,6 +1202,27 @@ function disposeAll() {
 // Store animation frame ID so we can cancel it
 let animationFrameId = null
 
+// Track page visibility for performance optimization
+let isPageVisible = !document.hidden
+
+// Pause simulation when tab is not visible
+document.addEventListener('visibilitychange', () => {
+    isPageVisible = !document.hidden
+    
+    if (isPageVisible) {
+        console.log('Tab visible - resuming simulation')
+        // Resume audio context if it was suspended
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume().catch(err => {
+                console.warn('Failed to resume audio context:', err)
+            })
+        }
+    } else {
+        console.log('Tab hidden - pausing heavy computations')
+        audioContext.suspend()
+    }
+})
+
 // Clean up on page unload
 window.addEventListener('beforeunload', () => {
     disposeAll()
@@ -1202,80 +1239,87 @@ const tick = () => {
     const deltaTime = elapsedTime - previousTime
     previousTime = elapsedTime
 
-    if (anims.mixerWheels) {
-        anims.mixerWheels.update(deltaTime)
+    // Skip heavy computations when tab is not visible (but keep rendering for smooth resume)
+    if (isPageVisible) {
+        // Update animation mixers
+        if (anims.mixerWheels) {
+            anims.mixerWheels.update(deltaTime)
 
-        switch (driveState) {
-            case DriveState.ACCEL:
-                while (anims.mixerWheels.timeScale < 1.0) {
-                    anims.mixerWheels.timeScale += deltaTime // Gradually increase timeScale to 1.0
-                    if (anims.mixerWheels.timeScale >= 1.0) {
-                        anims.mixerWheels.timeScale = 1.0
-                        driveState = DriveState.DRIVE
+            switch (driveState) {
+                case DriveState.ACCEL:
+                    while (anims.mixerWheels.timeScale < 1.0) {
+                        anims.mixerWheels.timeScale += deltaTime // Gradually increase timeScale to 1.0
+                        if (anims.mixerWheels.timeScale >= 1.0) {
+                            anims.mixerWheels.timeScale = 1.0
+                            driveState = DriveState.DRIVE
+                        }
                     }
-                }
-                break
-            case DriveState.DECEL:
-                while (anims.mixerWheels.timeScale > 0.0) {
-                    anims.mixerWheels.timeScale -= deltaTime // Gradually decrease timeScale to 0.0
-                    if (anims.mixerWheels.timeScale <= 0.0) {
-                        anims.mixerWheels.timeScale = 0.0
-                        driveState = DriveState.STOP
-                        anims.mixerWheels.stopAllAction()
+                    break
+                case DriveState.DECEL:
+                    while (anims.mixerWheels.timeScale > 0.0) {
+                        anims.mixerWheels.timeScale -= deltaTime // Gradually decrease timeScale to 0.0
+                        if (anims.mixerWheels.timeScale <= 0.0) {
+                            anims.mixerWheels.timeScale = 0.0
+                            driveState = DriveState.STOP
+                            anims.mixerWheels.stopAllAction()
+                        }
                     }
+                    break
+                case DriveState.DRIVE:
+                    // Maintain static RPM sounds
+                    break
+                case DriveState.STOP:
+                    // Play idle sounds
+                    break
+                default:
+                    // Do nothing, maintain current timeScale
+                    break
+            }
+        }
+
+        if (anims.mixerLights) {
+            anims.mixerLights.update(deltaTime)
+
+            // Set light intensity to headlight time animation progress
+            // Guard against accessing actions before they're initialized
+            if (anims.actLights0 && anims.headLightL && anims.headLightR) {
+                const headLightsIntensity = anims.lightsIntensity - (anims.actLights0.time / anims.actLights0.getClip().duration) * anims.lightsIntensity
+                anims.headLightL.intensity = anims.headLightR.intensity = headLightsIntensity
+            }
+        }
+
+        // Demo of car moving back and forth slightly
+        // #TODO: Hunker car backwards/forwards under acceleration/deceleration
+        carGroup.position.z = Math.sin(elapsedTime * 2) * 0.0125
+
+        // Update particle system
+        particleSystem.update(deltaTime, driveState)
+
+        // Update line buttons so they stay anchored to screen and car
+        if (lineButtons.length > 0) {
+            lineButtons.forEach(btn => {
+                try {
+                    btn.update(camera)
+                } catch (e) {
+                    // Defensive: ignore update errors for now
                 }
-                break
-            case DriveState.DRIVE:
-                // Maintain static RPM sounds
-                break
-            case DriveState.STOP:
-                // Play idle sounds
-                break
-            default:
-                // Do nothing, maintain current timeScale
-                break
+            })
+        }
+
+        // Update audio emitter volumes for smooth transitions
+        soundEngine.setEmitterVolumes(soloState)
+
+        // Guard against accessing meters before initialization
+        if (audioMeters && audioMeters.update) {
+            audioMeters.update()
         }
     }
 
-    if (anims.mixerLights) {
-        anims.mixerLights.update(deltaTime)
-
-        // Set light intensity to headlight time animation progress
-        // Guard against accessing actions before they're initialized
-        if (anims.actLights0 && anims.headLightL && anims.headLightR) {
-            const headLightsIntensity = anims.lightsIntensity - (anims.actLights0.time / anims.actLights0.getClip().duration) * anims.lightsIntensity
-            anims.headLightL.intensity = anims.headLightR.intensity = headLightsIntensity
-        }
-    }
-
-    // Demo of car moving back and forth slightly
-    // #TODO: Hunker car backwards/forwards under acceleration/deceleration
-    carGroup.position.z = Math.sin(elapsedTime * 2) * 0.0125
-
-    // Update particle system
-    particleSystem.update(deltaTime, driveState)
-
-    // Update controls
+    // Always update controls for smooth camera interaction
     controls.update()
 
-    // Update line buttons so they stay anchored to screen and car
-    if (lineButtons.length > 0) {
-        lineButtons.forEach(btn => {
-            try {
-                btn.update(camera)
-            } catch (e) {
-                // Defensive: ignore update errors for now
-            }
-        })
-    }
-
-    // Update audio emitter volumes for smooth transitions
-    soundEngine.setEmitterVolumes(soloState)
-
-    // Guard against accessing meters before initialization
-    if (audioMeters && audioMeters.update) {
-        audioMeters.update()
-    }
+    // Update performance monitor
+    perfMonitor.update()
 
     // Render
     renderer.render(scene, camera)
