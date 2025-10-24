@@ -27,6 +27,7 @@ var soloState = SoloState.MIX
 import { particleSystem } from './systems/exhaust.js'
 import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton, createAudioEmitterDebugger } from './systems/helpers.js'
 import { createMixer } from './systems/meters.js'
+import { createControls } from './systems/controls.js'
 import { createPerformanceMonitor } from './systems/stats.js'
 import { resumeAudioContext } from './systems/helpers.js'
 
@@ -1010,6 +1011,17 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
     })
 })
 
+/** @type {Object} Ignition and other controls */
+const controlsPanel = createControls({ initialVisible: true })
+// Subscribe to ignition button press event in controls panel
+controlsPanel.onIgnitionToggle(() => {
+    if (driveState === DriveState.STOP) {
+        soundEngine.ignitionOn()
+    } else {
+        soundEngine.ignitionOff()
+    }
+})
+
 /** @type {Object} Audio volume meter system */
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
 dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
@@ -1093,6 +1105,10 @@ function disposeAll() {
         disposeObject(helper)
     })
     emitterDebuggers.clear()
+
+    if (controlsPanel && controlsPanel.dispose) {
+        controlsPanel.dispose()
+    }
 
     if (audioMeters && audioMeters.dispose) {
         audioMeters.dispose()
@@ -1265,6 +1281,10 @@ const tick = () => {
         }
 
         soundEngine.setEmitterVolumes(soloState)
+
+        if (controlsPanel && controlsPanel.update) {
+            controlsPanel.update()
+        }
 
         if (audioMeters && audioMeters.update) {
             audioMeters.update()
