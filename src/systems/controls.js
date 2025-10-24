@@ -3,8 +3,7 @@
  * @module systems/controls
  */
 
-import * as THREE from 'three'
-import { colorToHex } from './helpers.js'
+import { ThrottleMap } from './constants.js'
 
 /**
  * Creates the controls panel
@@ -36,6 +35,8 @@ export function createControls({ initVisible = false, initIgnition = false, init
     let headlightsOn = initHeadlights
     let headlightsCallback = null
 
+    let throttlePressStart = 0
+    let throttlePressed = false
     let throttleCallback = null
 
     /**  
@@ -186,11 +187,11 @@ export function createControls({ initVisible = false, initIgnition = false, init
         let beamsAnimating = false
         function getBeams() {
             if (!beams) {
-            beams = [
-                headlightsBtn.querySelector('.beam-1'),
-                headlightsBtn.querySelector('.beam-2'),
-                headlightsBtn.querySelector('.beam-3')
-            ]
+                beams = [
+                    headlightsBtn.querySelector('.beam-1'),
+                    headlightsBtn.querySelector('.beam-2'),
+                    headlightsBtn.querySelector('.beam-3')
+                ]
             }
             return beams
         }
@@ -208,32 +209,32 @@ export function createControls({ initVisible = false, initIgnition = false, init
             const order = turnOn ? [0, 1, 2] : [2, 1, 0]
             let i = 0
             function step() {
-            setBeamState(order[i], turnOn)
-            i++
-            if (i < order.length) {
-                setTimeout(step, 70)
-            } else {
-                beamsAnimating = false
-                if (callback) callback()
-            }
+                setBeamState(order[i], turnOn)
+                i++
+                if (i < order.length) {
+                    setTimeout(step, 70)
+                } else {
+                    beamsAnimating = false
+                    if (callback) callback()
+                }
             }
             step()
         }
 
         function updateHeadlightsButton(animated = false) {
             if (animated) {
-            animateBeams(headlightsOn, () => {
-                headlightsBtn.style.background = headlightsOn
-                ? 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)'
-                : 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)'
-                if (headlightsCallback) headlightsCallback(headlightsOn)
-            })
+                animateBeams(headlightsOn, () => {
+                    headlightsBtn.style.background = headlightsOn
+                        ? 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)'
+                        : 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)'
+                    if (headlightsCallback) headlightsCallback(headlightsOn)
+                })
             } else {
-            getBeams().forEach((beam, idx) => setBeamState(idx, headlightsOn))
-            headlightsBtn.style.background = headlightsOn
-                ? 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)'
-                : 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)'
-            if (headlightsCallback) headlightsCallback(headlightsOn)
+                getBeams().forEach((beam, idx) => setBeamState(idx, headlightsOn))
+                headlightsBtn.style.background = headlightsOn
+                    ? 'radial-gradient(circle at 60% 40%, #222 80%, #333 100%)'
+                    : 'radial-gradient(circle at 60% 40%, #181818 80%, #222 100%)'
+                if (headlightsCallback) headlightsCallback(headlightsOn)
             }
         }
         updateHeadlightsButton(false)
@@ -293,7 +294,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
             visibility: ignitionOn ? 'visible' : 'hidden'
         })
         panel.appendChild(throttleBtn)
-        
+
         function updateThrottleVisibility() {
             throttleBtn.style.visibility = ignitionOn ? 'visible' : 'hidden'
         }
@@ -311,26 +312,38 @@ export function createControls({ initVisible = false, initIgnition = false, init
             updateHeadlightsButton(true)
         })
 
-        throttleBtn.addEventListener('click', () => {
-            if (throttleCallback) {
-                throttleCallback()
-            }
+        // Use mouse down and mouse up events to simulate pedal press and pass short medium or long presses to throttle callback
+        throttleBtn.addEventListener('mousedown', () => {
+            throttleBtn.style.background = 'linear-gradient(to bottom, #666 0%, #444 100%)'
+            throttlePressStart = performance.now()
+            throttlePressed = true
+        })
+        throttleBtn.addEventListener('mouseup', () => {
+            throttleBtn.style.background = 'linear-gradient(to bottom, #444 0%, #222 100%)'
+            throttlePressed = false
         })
 
-        // // Use mouse down and mouse up events to simulate pedal press and pass short medium or long presses to throttle callback
-        // throttleBtn.addEventListener('mousedown', () => {
-        //     throttleBtn.style.background = 'linear-gradient(to bottom, #666 0%, #444 100%)'
-
-        // })
-        // throttleBtn.addEventListener('mouseup', () => {
-        //     throttleBtn.style.background = 'linear-gradient(to bottom, #444 0%, #222 100%)'
-        //     if (throttleCallback) {
-        //         throttleCallback()
-        //     }
-        // })
-        
         document.body.appendChild(panel)
         return panel
+    }
+
+    /**
+     * Handle throttle button press duration and trigger callbacks
+     */
+    function handleThrottlePress() {
+        if (throttlePressStart > 0) {
+            const pressDuration = performance.now() - throttlePressStart
+            if (pressDuration >= ThrottleMap.long) {
+                if (throttleCallback) throttleCallback(ThrottleMap.long)
+                throttlePressStart = 0
+            } else if (pressDuration >= ThrottleMap.medium && !throttlePressed) {
+                if (throttleCallback) throttleCallback(ThrottleMap.medium)
+                throttlePressStart = 0
+            } else if (pressDuration < ThrottleMap.short && !throttlePressed) {
+                if (throttleCallback) throttleCallback(ThrottleMap.short)
+                throttlePressStart = 0
+            }
+        }
     }
 
     /**
@@ -339,7 +352,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
     function update() {
         const p = ensurePanel()
 
-
+        handleThrottlePress()
 
         panel.style.display = visible ? '' : 'none'
     }

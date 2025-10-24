@@ -15,7 +15,7 @@ import * as dat from 'lil-gui'
 
 THREE.ColorManagement.enabled = false
 
-import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
+import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, ThrottleMap, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
 import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser, checkWebGLSupport, checkWebAudioSupport, showErrorUI, showLoadingUI, loadGLTFModel, loadAudioFile, loadHDRTexture } from './systems/helpers.js'
 
 /** @type {string} Current driving state (STOP, DRIVE, ACCEL, DECEL) */
@@ -1014,8 +1014,17 @@ controlsPanel.registerHeadlightsCallback((headlightsOn) => {
     console.log('Headlights:', headlightsOn ? 'ON' : 'OFF')
     anims.lights()
 })
-controlsPanel.registerThrottleCallback(() => {
-    console.log('Throttle pressed')
+controlsPanel.registerThrottleCallback((duration) => {
+    console.log('Throttle pressed:', duration, 'ms', duration >= ThrottleMap.long ? '(Long)' : duration >= ThrottleMap.medium ? '(Medium)' : '(Short)')
+    // #TODO: Implement throttle rev SFX
+    switch (duration) {
+        case ThrottleMap.short:
+            break;
+        case ThrottleMap.medium:
+            break;
+        case ThrottleMap.long:
+            break;
+    }
 })
 console.log('Controls panel created', controlsPanel)
 

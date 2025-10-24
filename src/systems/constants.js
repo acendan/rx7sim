@@ -80,6 +80,17 @@ export const ConeEmitterSettings = {
 }
 
 /**
+ * Mapping of throttle press durations to action types
+ * @type {Object.<string, number>}
+ * @property {number} Press duration in milliseconds
+ */
+export const ThrottleMap = {
+    short: 150,
+    medium: 300,
+    long: 600
+}
+
+/**
  * Default lighting configuration for the scene
  * @type {Object}
  * @property {Object} ambient - Ambient light settings
@@ -148,6 +159,7 @@ export default {
     SoloState,
     SoloBtnColors,
     EmitterVolMults,
+    ThrottleMapping: ThrottleMap,
     ConeEmitterSettings,
     LightingDefaults,
     EnvironmentPresets
