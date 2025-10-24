@@ -1,5 +1,5 @@
 /**
- * @fileoverview Centralized constants and configuration for the RX7 simulator
+ * @fileoverview Centralized constants and configuration for rx7sim
  * @module systems/constants
  */
 

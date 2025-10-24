@@ -1,5 +1,5 @@
 /**
- * @fileoverview Main application entry point for RX7 sound simulator
+ * @fileoverview Main application entry point for rx7sim
  * Three.js-based 3D car visualization with spatial audio engine
  * Features positional audio with intake/exhaust/interior perspectives,
  * particle-based exhaust smoke, dynamic lighting, and HDR environments
