@@ -1014,6 +1014,9 @@ controlsPanel.registerHeadlightsCallback((headlightsOn) => {
     console.log('Headlights:', headlightsOn ? 'ON' : 'OFF')
     anims.lights()
 })
+controlsPanel.registerThrottleCallback(() => {
+    console.log('Throttle pressed')
+})
 console.log('Controls panel created', controlsPanel)
 
 /** @type {Object} Audio volume meter system */

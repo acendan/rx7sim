@@ -36,6 +36,8 @@ export function createControls({ initVisible = false, initIgnition = false, init
     let headlightsOn = initHeadlights
     let headlightsCallback = null
 
+    let throttleCallback = null
+
     /**  
      * Sets the callback for ignition toggle
      * @param {Function} callback - The callback function to call on ignition toggle
@@ -50,6 +52,14 @@ export function createControls({ initVisible = false, initIgnition = false, init
      */
     function registerHeadlightsCallback(callback) {
         headlightsCallback = callback
+    }
+
+    /**
+     * Sets the callback for throttle change
+     * @param {Function} callback - The callback function to call on throttle change
+     */
+    function registerThrottleCallback(callback) {
+        throttleCallback = callback
     }
 
     /**
@@ -68,13 +78,12 @@ export function createControls({ initVisible = false, initIgnition = false, init
             padding: '8px',
             background: 'rgba(0,0,0,0.0)', // Transparent
             color: '#fff',
-            borderRadius: '6px',
+            border: 'none',
             zIndex: 9999,
             fontFamily: 'monospace',
             fontSize: '12px',
-            pointerEvents: 'none',
-            display: visible ? '' : 'none',
-            border: 'none' // No border
+            pointerEvents: 'auto',
+            display: visible ? '' : 'none'
         })
 
         // Circular "Push to Start/Stop" button
@@ -86,7 +95,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
         `
         Object.assign(ignitionBtn.style, {
             display: 'block',
-            margin: '4px 0',
+            margin: '4px auto 0 auto', // top margin, auto left/right for centering
             padding: '0',
             width: '75px',
             height: '75px',
@@ -125,13 +134,6 @@ export function createControls({ initVisible = false, initIgnition = false, init
                 ignitionCallback(ignitionOn)
             }
         }
-
-        // Toggle ignition state on click
-        ignitionBtn.addEventListener('click', () => {
-            ignitionOn = !ignitionOn
-            updateIgnitionButton()
-        })
-        panel.style.pointerEvents = 'auto'
         panel.appendChild(ignitionBtn)
 
         // Headlights toggle button, with dashboard-style headlight symbol
@@ -234,15 +236,99 @@ export function createControls({ initVisible = false, initIgnition = false, init
             if (headlightsCallback) headlightsCallback(headlightsOn)
             }
         }
-        // Initialize button state
         updateHeadlightsButton(false)
+
+        panel.appendChild(headlightsBtn)
+
+        // Throttle pedal button to the right of the ignition button (only visible when ignition is on)
+        const throttleBtn = document.createElement('button')
+        throttleBtn.className = 'throttle-pedal'
+        throttleBtn.innerHTML = `
+            <span style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            left: 0; top: 0;
+            ">
+            <svg width="22" height="48" viewBox="0 0 22 48" xmlns="http://www.w3.org/2000/svg">
+            <!-- Pedal body -->
+            <rect x="4" y="6" width="14" height="36" rx="7" fill="#fff" stroke="#bbb" stroke-width="1.5"/>
+            <!-- Pedal shadow -->
+            <rect x="6" y="10" width="10" height="28" rx="5" fill="#222" opacity="0.3"/>
+            <!-- Pedal grip lines -->
+            <line x1="7" y1="13" x2="15" y2="13" stroke="#888" stroke-width="1.2"/>
+            <line x1="7" y1="19" x2="15" y2="19" stroke="#888" stroke-width="1.2"/>
+            <line x1="7" y1="25" x2="15" y2="25" stroke="#888" stroke-width="1.2"/>
+            <line x1="7" y1="31" x2="15" y2="31" stroke="#888" stroke-width="1.2"/>
+            <line x1="7" y1="37" x2="15" y2="37" stroke="#888" stroke-width="1.2"/>
+            </svg>
+            </span>
+        `
+        Object.assign(throttleBtn.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'absolute',
+            left: '92px',
+            top: '0',
+            height: '60px',
+            width: '24px',
+            margin: '20px auto 0 auto',
+            padding: '0',
+            borderRadius: '12px',
+            background: 'linear-gradient(to bottom, #444 0%, #222 100%)',
+            border: '2px solid #fff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            cursor: 'pointer',
+            color: '#fff',
+            fontFamily: 'inherit',
+            fontSize: '12px',
+            textAlign: 'center',
+            lineHeight: '14px',
+            transition: 'background 0.2s',
+            visibility: ignitionOn ? 'visible' : 'hidden'
+        })
+        panel.appendChild(throttleBtn)
+        
+        function updateThrottleVisibility() {
+            throttleBtn.style.visibility = ignitionOn ? 'visible' : 'hidden'
+        }
+        updateThrottleVisibility()
+
+        // Event listeners
+        ignitionBtn.addEventListener('click', () => {
+            ignitionOn = !ignitionOn
+            updateIgnitionButton()
+            updateThrottleVisibility()
+        })
+
         headlightsBtn.addEventListener('click', () => {
             headlightsOn = !headlightsOn
             updateHeadlightsButton(true)
         })
-        panel.appendChild(headlightsBtn)
 
+        throttleBtn.addEventListener('click', () => {
+            if (throttleCallback) {
+                throttleCallback()
+            }
+        })
 
+        // // Use mouse down and mouse up events to simulate pedal press and pass short medium or long presses to throttle callback
+        // throttleBtn.addEventListener('mousedown', () => {
+        //     throttleBtn.style.background = 'linear-gradient(to bottom, #666 0%, #444 100%)'
+
+        // })
+        // throttleBtn.addEventListener('mouseup', () => {
+        //     throttleBtn.style.background = 'linear-gradient(to bottom, #444 0%, #222 100%)'
+        //     if (throttleCallback) {
+        //         throttleCallback()
+        //     }
+        // })
+        
         document.body.appendChild(panel)
         return panel
     }
@@ -283,6 +369,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
     return {
         registerIgnitionCallback,
         registerHeadlightsCallback,
+        registerThrottleCallback,
         update,
         setVisible,
         isVisible: () => visible,
