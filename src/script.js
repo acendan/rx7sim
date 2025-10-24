@@ -28,21 +28,17 @@ import { particleSystem } from './systems/exhaust.js'
 import { createDirectionalLights, createHeadlightSpots, playPositionalAudio, createLineButton, createAudioEmitterDebugger } from './systems/helpers.js'
 import { createMixer } from './systems/meters.js'
 import { createPerformanceMonitor } from './systems/stats.js'
-
-// Import audio context resume helper
 import { resumeAudioContext } from './systems/helpers.js'
 
 /**
  * Feature Detection & Browser Compatibility Check
  */
-// Check WebGL support
 const webglCheck = checkWebGLSupport()
 if (!webglCheck.available) {
     showErrorUI('WebGL Not Supported', webglCheck.error, true)
     throw new Error(webglCheck.error)
 }
 
-// Check Web Audio API support
 const audioCheck = checkWebAudioSupport()
 if (!audioCheck.available) {
     showErrorUI('Web Audio Not Supported', audioCheck.error, true)
@@ -209,12 +205,10 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
     const preset = EnvironmentPresets[name]
     if (!preset) return
     
-    // Handle both old string format and new object format
     const path = typeof preset === 'string' ? preset : preset.path
     const reverbPreset = typeof preset === 'object' ? preset.reverb : null
 
     loadHDRTexture(rgbeLoader, path).then((texture) => {
-        // Dispose previous texture if any
         if (currentHDRTexture) {
             disposeTexture(currentHDRTexture)
         }
@@ -225,21 +219,16 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
         scene.background = texture
         scene.environment = texture
 
-        // Hide floor when HDRI is active
         floor.visible = false
 
-        // Apply lighting override if provided
         if (preset.lighting) {
             applyLightingOverride(preset.lighting)
         }
 
-        // Auto-select associated reverb if specified
         if (reverbPreset && reverbParams) {
             reverbParams.Reverb = reverbPreset
-            // Trigger reverb load by finding and calling the controller's onChange
             if (dbgAudioReverb) {
                 dbgAudioReverb.updateDisplay()
-                // Manually trigger the reverb loading logic
                 const reverbMapEntry = reverbMap[reverbPreset]
                 if (reverbMapEntry) {
                     const { path: reverbPath, blend = 0.5, scalingFactor = 1.0 } = reverbMapEntry
@@ -289,18 +278,15 @@ const lineButtons = []
  * @property {function(): void} lightsTimeScaleToggle - Toggles headlight animation direction
  */
 let anims = {
-    // Wheels
     mixerWheels: null,
     actWheelsRot: null, actTiresRot: null,
 
-    // Lights
     mixerLights: null,
     actLights0: null, actLights1: null, actLights2: null, actLights3: null, actLights4: null,
     headLightL: null, headLightR: null,
     lightsFlipFlop: true,
     lightsIntensity: 3.0,
     lightsTimeScaleToggle: () => {
-        // Guard against accessing before lights are loaded
         if (!anims.mixerLights) return
 
         if (anims.lightsFlipFlop) {
@@ -320,7 +306,6 @@ let anims = {
         }
     },
     lights: () => { 
-        // Guard against accessing before lights are loaded
         if (!anims.mixerLights) return
         
         anims.mixerLights.stopAllAction()
@@ -343,7 +328,6 @@ async function initializeModels() {
     const loadingUI = showLoadingUI('Loading models...')
     
     try {
-        // Load all models in parallel
         loadingUI.update('Loading car model...')
         const [gltfCar, gltfWheels, gltfLights] = await Promise.all([
             loadGLTFModel(gltfLoader, './model/rx7/rx7.gltf'),
@@ -377,16 +361,13 @@ async function initializeModels() {
         wheelRR.scale.set(-1, 1, 1)
         carGroup.add(wheelRR)
 
-        // Wheel animations
         anims.mixerWheels = new THREE.AnimationMixer(new THREE.AnimationObjectGroup(gltfWheels.scene, wheelFL, wheelFR, wheelRR))
         anims.actWheelsRot = anims.mixerWheels.clipAction(gltfWheels.animations[0])
         anims.actTiresRot = anims.mixerWheels.clipAction(gltfWheels.animations[1])
 
-        // Setup lights
         gltfLights.scene.scale.set(1.0, 1.0, 1.0)
         carGroup.add(gltfLights.scene)
 
-        // Light animations
         anims.mixerLights = new THREE.AnimationMixer(gltfLights.scene)
         for (let i = 0; i < 5; i++) {
             const key = `actLights${i}`
@@ -395,7 +376,6 @@ async function initializeModels() {
             anims[key].clampWhenFinished = true
         }
 
-        // Spotlights
         const { left: headLightL, right: headLightR } = createHeadlightSpots({ intensity: anims.lightsIntensity })
         anims.headLightL = headLightL
         anims.headLightR = headLightR
@@ -404,13 +384,10 @@ async function initializeModels() {
         carGroup.add(anims.headLightR)
         carGroup.add(anims.headLightR.target)
 
-        // Debug UI for headlights
         dbgVehicle.add(anims, 'lights').name('Headlights')
 
-        // Solo buttons
         setupSoloButtons(gltfCar.scene)
 
-        // Mark models as loaded
         initState.modelsLoaded = true
 
         loadingUI.remove()
@@ -454,14 +431,11 @@ function setupSoloButtons(carScene) {
         color: SoloBtnColors.INTERIOR 
     })
 
-    // Add lines to scene and store buttons for updates
     ;[intakeSoloBtn, exhaustSoloBtn, interiorSoloBtn].forEach(btn => {
         scene.add(btn.line)
         lineButtons.push(btn)
 
-        // Solo button click event
         btn.button.addEventListener('click', () => {
-            // Clicked same button again: reset to no solo
             if (SoloState[btn.button.textContent.toUpperCase()] === soloState) {
                 soloState = SoloState.MIX
 
@@ -480,10 +454,8 @@ function setupSoloButtons(carScene) {
                     emitterDebuggers.forEach(helper => helper.visible = true)
                 }
             } else {
-                // New solo button selected
                 soloState = SoloState[btn.button.textContent.toUpperCase()]
 
-                // Darken background color of other buttons
                 lineButtons.forEach(otherBtn => {
                     if (otherBtn !== btn) {
                         otherBtn.button.style.backgroundColor = `#444444`
@@ -491,7 +463,6 @@ function setupSoloButtons(carScene) {
                         otherBtn.line.visible = false
                         otherBtn.button.dimmed = true
 
-                        // If emitter debuggers are visible, hide non-solo emitter debuggers
                         if (dbgAudioSettings['Emitters']) {
                             const posKey = otherBtn.button.textContent.toLowerCase()
                             const helper = emitterDebuggers.get(posKey)
@@ -502,7 +473,6 @@ function setupSoloButtons(carScene) {
                         otherBtn.line.visible = true
                         otherBtn.button.dimmed = false
 
-                        // If emitter debuggers are visible, ensure this one is visible
                         if (dbgAudioSettings['Emitters']) {
                             const posKey = otherBtn.button.textContent.toLowerCase()
                             const helper = emitterDebuggers.get(posKey)
@@ -900,14 +870,12 @@ const audioEmitters = {
 
 console.log("Audio Emitters:", audioEmitters);
 
-// Add emitters to car at appropriate positions & starting volume
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     carGroup.add(emitter);
     switch (pos) {
         case 'intake':
-            emitter.position.set(0, 0.2, 2.1); // Front of car
+            emitter.position.set(0, 0.2, 2.1);
             emitter.setVolume(0);
-            // Point intake sound forward (along +Z axis)
             emitter.setDirectionalCone(
                 THREE.MathUtils.degToRad(ConeEmitterSettings.innerAngle), 
                 THREE.MathUtils.degToRad(ConeEmitterSettings.outerAngle), 
@@ -915,10 +883,8 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
             );
             break;
         case 'exhaust':
-            emitter.position.set(-0.5, 0.3, -2.0); // Rear of car
+            emitter.position.set(-0.5, 0.3, -2.0);
             emitter.setVolume(0);
-            // Point exhaust sound backward (along -Z axis)
-            // Rotate the emitter 180 degrees around Y axis to point backward
             emitter.rotation.y = Math.PI;
             emitter.setDirectionalCone(
                 THREE.MathUtils.degToRad(ConeEmitterSettings.innerAngle), 
@@ -927,11 +893,11 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
             );
             break;
         case 'interior':
-            emitter.position.set(0.0, 0.5, -0.2); // Inside car
+            emitter.position.set(0.0, 0.5, -0.2);
             emitter.setVolume(0);
             break;
         case 'mix':
-            emitter.position.set(0, 0, 0); // Center for mix
+            emitter.position.set(0, 0, 0);
             emitter.setVolume(1.0);
             break;
         default:
@@ -966,14 +932,12 @@ const soundEngine = {
      * @param {string} currSoloState - Current solo state (MIX, INTAKE, EXHAUST, INTERIOR)
      */
     setEmitterVolumes(currSoloState) {
-        // Get individual emitters (excluding mix)
         const individualEmitters = ['intake', 'exhaust', 'interior'];
 
         individualEmitters.forEach(pos => {
             const emitter = audioEmitters[pos];
             if (!emitter) return;
 
-            // Base target volume (before global multiplier)
             const baseTarget = (currSoloState === SoloState.MIX)
                 ? EmitterVolMults.MIX
                 : (pos === currSoloState)
@@ -993,7 +957,6 @@ const soundEngine = {
             }
         });
 
-        // Always keep mix emitter silent as we're creating our own mix
         audioEmitters.mix.setVolume(0);
     },
 
@@ -1003,7 +966,6 @@ const soundEngine = {
      * Plays ignition sound followed by idle loop, starts wheel animations
      */
     ignitionOn: () => {
-        // Resume audio context on first user interaction (handles autoplay policy)
         if (audioContext.state === 'suspended') {
             audioContext.resume().then(() => {
                 audioEnabled = true
@@ -1013,16 +975,14 @@ const soundEngine = {
             })
         }
 
-        // Start ignition for all positions
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-            if (pos === 'mix') return; // No ignition sound for mix
+            if (pos === 'mix') return;
 
             playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignitionOn.ogg`, {
                 store: soundEngine.buffers[pos],
                 storeKey: 'ignitionOn',
                 loop: false,
                 onEnded: () => {
-                    // After ignition sound ends, start engine idle loop for this position
                     playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
                         store: soundEngine.buffers[pos],
                         storeKey: 'idle',
@@ -1035,7 +995,6 @@ const soundEngine = {
 
         driveState = DriveState.ACCEL;
         
-        // Guard against accessing animation mixers before models are loaded
         if (anims.mixerWheels) {
             anims.mixerWheels.stopAllAction();
             anims.actWheelsRot.play();
@@ -1043,7 +1002,6 @@ const soundEngine = {
             anims.mixerWheels.timeScale = 0.01;
         }
 
-        // Guard against accessing debug UI before it's initialized
         if (dbgVehIgnOn) dbgVehIgnOn.hide();
         if (dbgVehIgnOff) dbgVehIgnOff.show();
     },
@@ -1053,9 +1011,8 @@ const soundEngine = {
      * Triggers shutdown sound then stops all audio playback
      */
     ignitionOff: () => {
-        // Play ignition off for all positions
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
-            if (pos === 'mix') return; // No ignition sound for mix
+            if (pos === 'mix') return;
 
             playPositionalAudio(audioLoader, emitter, `./audio/${pos}/ignitionOff.ogg`, {
                 store: soundEngine.buffers[pos],
@@ -1069,7 +1026,6 @@ const soundEngine = {
 
         driveState = DriveState.DECEL;
 
-        // Guard against accessing debug UI before it's initialized
         if (dbgVehIgnOn) dbgVehIgnOn.show();
         if (dbgVehIgnOff) dbgVehIgnOff.hide();
     },
@@ -1080,7 +1036,6 @@ const soundEngine = {
      * Updates initialization state when complete
      */
     load() {
-        // Cache buffers for all positions
         const engine = this
         const loadPromises = []
         
@@ -1092,19 +1047,17 @@ const soundEngine = {
                     })
                     .catch(err => {
                         console.error(`Failed to load audio ${pos}/${key}:`, err)
-                        // Non-blocking error for individual audio files
-                    })
+                })
                 loadPromises.push(promise)
             })
         })
 
-        // Wait for all audio to load
         Promise.all(loadPromises).then(() => {
             initState.audioLoaded = true
             console.log('✓ All audio files loaded')
             checkSceneReady()
         }).catch(() => {
-            initState.audioLoaded = true // Mark as loaded even with errors
+            initState.audioLoaded = true
             showErrorUI(
                 'Audio Load Warning',
                 'Some audio files failed to load. The experience may be incomplete.',
@@ -1120,12 +1073,9 @@ const soundEngine = {
      * @param {AudioBuffer} reverbBuffer - Impulse response buffer for convolution
      */
     applyConvolutionReverb(reverbBuffer) {
-        // Uses latest selected reverb name stored on soundEngine
         const blend = this.currentReverbBlend ?? 0.5
         Object.values(audioEmitters).forEach(emitter => {
-            // Remove existing filter graph if present
             if (emitter._reverbNodes) {
-                // Disconnect old nodes
                 try {
                     const { dryGain, wetGain, convolver } = emitter._reverbNodes
                     dryGain.disconnect()
@@ -1139,20 +1089,17 @@ const soundEngine = {
             const convolver = ctx.createConvolver()
             convolver.buffer = reverbBuffer
 
-            // Gain nodes for wet/dry mix; apply normalization to wet path only
             const wetGain = ctx.createGain()
             const dryGain = ctx.createGain()
             wetGain.gain.value = blend * this.currentReverbScalingFactor
             dryGain.gain.value = (1.0 - blend) * this.currentReverbScalingFactor
 
-            // PositionalAudio has .panner as its output prior to filters
             const sourceNode = emitter.panner
             if (!sourceNode) {
                 console.warn('PositionalAudio panner node missing; cannot apply reverb graph')
                 return
             }
 
-            // Connect graph: source -> dryGain -> destination; source -> convolver -> wetGain -> destination
             sourceNode.connect(dryGain)
             dryGain.connect(ctx.destination)
             sourceNode.connect(convolver)
@@ -1168,7 +1115,6 @@ const soundEngine = {
      * Restores direct audio path without reverb processing
      */
     removeConvolutionReverb() {
-        // Remove custom filter graph (disconnect reverb nodes)
         Object.values(audioEmitters).forEach(em => {
             if (em._reverbNodes) {
                 try {
@@ -1237,7 +1183,6 @@ const emitterDebuggers = new Map()
 Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     if (pos === 'mix') return;
     
-    // Configure helper based on emitter type
     const helperConfig = {
         color: SoloBtnColors[pos.toUpperCase()] || 0xffff00,
         size: 0.4
@@ -1260,7 +1205,6 @@ Object.entries(audioEmitters).forEach(([pos, emitter]) => {
     emitterDebuggers.set(pos, helper)
 })
 
-// Add debug toggle for emitter position helpers
 dbgAudioEmitters = dbgAudio.add(dbgAudioSettings, 'Emitters').onChange(v => {
     emitterDebuggers.forEach(helper => helper.visible = v)
 })
@@ -1288,13 +1232,11 @@ dbgVehIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').h
 function disposeAll() {
     console.log('Cleaning up resources...')
 
-    // Stop animation loop
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId)
         animationFrameId = null
     }
 
-    // Clean up line buttons
     lineButtons.forEach(btn => {
         if (btn && btn.dispose) {
             btn.dispose()
@@ -1302,39 +1244,32 @@ function disposeAll() {
     })
     lineButtons.length = 0
 
-    // Clean up emitter debuggers
     emitterDebuggers.forEach(helper => {
         disposeObject(helper)
     })
     emitterDebuggers.clear()
 
-    // Clean up audio meters
     if (audioMeters && audioMeters.dispose) {
         audioMeters.dispose()
     }
 
-    // Clean up performance monitor
     if (perfMonitor && perfMonitor.dispose) {
         perfMonitor.dispose()
     }
 
-    // Clean up audio emitters
     Object.values(audioEmitters).forEach(emitter => {
         disposeAudioEmitter(emitter)
     })
 
-    // Clean up particle system
     if (particleSystem && particleSystem.dispose) {
         particleSystem.dispose()
     }
 
-    // Dispose current HDR texture
     if (currentHDRTexture) {
         disposeTexture(currentHDRTexture)
         currentHDRTexture = null
     }
 
-    // Dispose scene objects
     if (carGroup) {
         disposeObject(carGroup)
     }
@@ -1342,7 +1277,6 @@ function disposeAll() {
         disposeObject(floor)
     }
 
-    // Clean up animation mixers
     if (anims.mixerWheels) {
         anims.mixerWheels.stopAllAction()
         anims.mixerWheels = null
@@ -1352,7 +1286,6 @@ function disposeAll() {
         anims.mixerLights = null
     }
 
-    // Dispose lights
     if (hemiLight) {
         scene.remove(hemiLight)
     }
@@ -1364,12 +1297,10 @@ function disposeAll() {
         light.dispose()
     })
 
-    // Dispose renderer
     if (renderer) {
         renderer.dispose()
     }
 
-    // Dispose debug UI
     if (dbg) {
         dbg.destroy()
     }
@@ -1396,7 +1327,6 @@ document.addEventListener('visibilitychange', () => {
     
     if (isPageVisible) {
         console.log('Tab visible - resuming simulation')
-        // Resume audio context if it was suspended
         if (audioContext && audioContext.state === 'suspended') {
             audioContext.resume().catch(err => {
                 console.warn('Failed to resume audio context:', err)
@@ -1408,9 +1338,6 @@ document.addEventListener('visibilitychange', () => {
     }
 })
 
-/**
- * Clean up resources on page unload to prevent memory leaks
- */
 window.addEventListener('beforeunload', () => {
     disposeAll()
 })
@@ -1436,16 +1363,14 @@ const tick = () => {
     const deltaTime = elapsedTime - previousTime
     previousTime = elapsedTime
 
-    // Skip heavy computations when tab is not visible (but keep rendering for smooth resume)
     if (isPageVisible) {
-        // Update animation mixers
         if (anims.mixerWheels) {
             anims.mixerWheels.update(deltaTime)
 
             switch (driveState) {
                 case DriveState.ACCEL:
                     while (anims.mixerWheels.timeScale < 1.0) {
-                        anims.mixerWheels.timeScale += deltaTime // Gradually increase timeScale to 1.0
+                        anims.mixerWheels.timeScale += deltaTime
                         if (anims.mixerWheels.timeScale >= 1.0) {
                             anims.mixerWheels.timeScale = 1.0
                             driveState = DriveState.DRIVE
@@ -1454,7 +1379,7 @@ const tick = () => {
                     break
                 case DriveState.DECEL:
                     while (anims.mixerWheels.timeScale > 0.0) {
-                        anims.mixerWheels.timeScale -= deltaTime // Gradually decrease timeScale to 0.0
+                        anims.mixerWheels.timeScale -= deltaTime
                         if (anims.mixerWheels.timeScale <= 0.0) {
                             anims.mixerWheels.timeScale = 0.0
                             driveState = DriveState.STOP
@@ -1463,13 +1388,10 @@ const tick = () => {
                     }
                     break
                 case DriveState.DRIVE:
-                    // Maintain static RPM sounds
                     break
                 case DriveState.STOP:
-                    // Play idle sounds
                     break
                 default:
-                    // Do nothing, maintain current timeScale
                     break
             }
         }
@@ -1477,22 +1399,16 @@ const tick = () => {
         if (anims.mixerLights) {
             anims.mixerLights.update(deltaTime)
 
-            // Set light intensity to headlight time animation progress
-            // Guard against accessing actions before they're initialized
             if (anims.actLights0 && anims.headLightL && anims.headLightR) {
                 const headLightsIntensity = anims.lightsIntensity - (anims.actLights0.time / anims.actLights0.getClip().duration) * anims.lightsIntensity
                 anims.headLightL.intensity = anims.headLightR.intensity = headLightsIntensity
             }
         }
 
-        // Demo of car moving back and forth slightly
-        // #TODO: Hunker car backwards/forwards under acceleration/deceleration
         carGroup.position.z = Math.sin(elapsedTime * 2) * 0.0125
 
-        // Update particle system
         particleSystem.update(deltaTime, driveState)
 
-        // Update line buttons so they stay anchored to screen and car
         if (lineButtons.length > 0) {
             lineButtons.forEach(btn => {
                 try {
@@ -1503,27 +1419,20 @@ const tick = () => {
             })
         }
 
-        // Update audio emitter volumes for smooth transitions
         soundEngine.setEmitterVolumes(soloState)
 
-        // Guard against accessing meters before initialization
         if (audioMeters && audioMeters.update) {
             audioMeters.update()
         }
     }
 
-    // Always update controls for smooth camera interaction
     controls.update()
 
-    // Update performance monitor
     perfMonitor.update()
 
-    // Render scene
     renderer.render(scene, camera)
 
-    // Schedule next frame
     animationFrameId = window.requestAnimationFrame(tick)
 }
 
-// Start the animation loop
 tick()
