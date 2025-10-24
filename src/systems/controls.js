@@ -27,20 +27,17 @@ import { colorToHex } from './helpers.js'
  * }
  */
 export function createControls({ initialVisible = false } = {}) {
-    let visible = initialVisible
     let panel = null
-    
+    let visible = initialVisible
+    let ignitionOn = false
+    let ignitionCallback = null
+
     /**  
      * Sets the callback for ignition toggle
      * @param {Function} callback - The callback function to call on ignition toggle
      */
-    function onIgnitionToggle(callback) {
-        const p = ensurePanel()
-        p.addEventListener('click', (event) => {
-            if (event.target.matches('.ignition-toggle')) {
-                callback()
-            }
-        })
+    function registerIgnitionCallback(callback) {
+        ignitionCallback = callback
     }
 
     /**
@@ -57,33 +54,73 @@ export function createControls({ initialVisible = false } = {}) {
             top: '10px', // Upper left corner
             left: '10px',
             padding: '8px',
-            background: 'rgba(0,0,0,0.6)',
+            background: 'rgba(0,0,0,0.0)', // Transparent
             color: '#fff',
             borderRadius: '6px',
             zIndex: 9999,
             fontFamily: 'monospace',
             fontSize: '12px',
             pointerEvents: 'none',
-            display: visible ? '' : 'none'
+            display: visible ? '' : 'none',
+            border: 'none' // No border
         })
 
-        // Example ignition toggle button
+        // Circular "Push to Start/Stop" button
         const ignitionBtn = document.createElement('button')
         ignitionBtn.className = 'ignition-toggle'
-        ignitionBtn.textContent = 'Toggle Ignition'
+        ignitionBtn.innerHTML = `
+            <span class="ignition-start" style="font-weight:bold;color:#fff;">START</span>
+            <span class="ignition-stop" style="color:#aaa;">STOP</span>
+        `
         Object.assign(ignitionBtn.style, {
             display: 'block',
             margin: '4px 0',
-            padding: '4px 8px',
-            background: 'rgba(255,255,255,0.1)',
-            border: 'none',
-            borderRadius: '4px',
+            padding: '0',
+            width: '75px',
+            height: '75px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle at 60% 40%, #a00 80%, #cc2f2f 100%)',
+            border: '2px solid #fff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
             cursor: 'pointer',
-            color: '#fff'
+            color: '#fff',
+            fontFamily: 'inherit',
+            fontSize: '16px',
+            textAlign: 'center',
+            lineHeight: '16px',
+            position: 'relative',
+            transition: 'background 0.2s'
         })
-        panel.appendChild(ignitionBtn)
-        // Make button clickable
+
+        // Track ignition state
+        function updateIgnitionButton() {
+            const startSpan = ignitionBtn.querySelector('.ignition-start')
+            const stopSpan = ignitionBtn.querySelector('.ignition-stop')
+            if (ignitionOn) {
+                startSpan.style.fontWeight = 'normal'
+                startSpan.style.color = '#888'
+                stopSpan.style.fontWeight = 'bold'
+                stopSpan.style.color = '#fff'
+                ignitionBtn.style.background = 'radial-gradient(circle at 60% 40%, #cc2f2f 80%, #a00 100%)'
+            } else {
+                startSpan.style.fontWeight = 'bold'
+                startSpan.style.color = '#fff'
+                stopSpan.style.fontWeight = 'normal'
+                stopSpan.style.color = '#888'
+                ignitionBtn.style.background = 'radial-gradient(circle at 60% 40%, #a00 80%, #cc2f2f 100%)'
+            }
+            if (ignitionCallback) {
+                ignitionCallback(ignitionOn)
+            }
+        }
+
+        // Toggle ignition state on click
+        ignitionBtn.addEventListener('click', () => {
+            ignitionOn = !ignitionOn
+            updateIgnitionButton()
+        })
         panel.style.pointerEvents = 'auto'
+        panel.appendChild(ignitionBtn)
 
         document.body.appendChild(panel)
         return panel
@@ -94,8 +131,8 @@ export function createControls({ initialVisible = false } = {}) {
      */
     function update() {
         const p = ensurePanel()
-        
-        
+
+
 
         panel.style.display = visible ? '' : 'none'
     }
@@ -123,7 +160,7 @@ export function createControls({ initialVisible = false } = {}) {
     }
 
     return {
-        onIgnitionToggle,
+        registerIgnitionCallback,
         update,
         setVisible,
         isVisible: () => visible,

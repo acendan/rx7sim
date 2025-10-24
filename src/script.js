@@ -98,10 +98,6 @@ const dbgVehicle = dbg.addFolder('Vehicle')
 let dbgVehLevelSelect = null
 /** @type {dat.Controller|null} Car model selector */
 let dbgVehCarSelect = null
-/** @type {dat.Controller|null} Ignition on button */
-let dbgVehIgnOn = null
-/** @type {dat.Controller|null} Ignition off button */
-let dbgVehIgnOff = null
 
 /** @type {dat.GUI} Performance folder in debug UI */
 const dbgPerformance = dbg.addFolder('Performance')
@@ -847,9 +843,6 @@ const soundEngine = {
             anims.actTiresRot.play();
             anims.mixerWheels.timeScale = 0.01;
         }
-
-        if (dbgVehIgnOn) dbgVehIgnOn.hide();
-        if (dbgVehIgnOff) dbgVehIgnOff.show();
     },
 
     /**
@@ -871,9 +864,6 @@ const soundEngine = {
         });
 
         driveState = DriveState.DECEL;
-
-        if (dbgVehIgnOn) dbgVehIgnOn.show();
-        if (dbgVehIgnOff) dbgVehIgnOff.hide();
     },
 
     /**
@@ -1014,13 +1004,16 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
 /** @type {Object} Ignition and other controls */
 const controlsPanel = createControls({ initialVisible: true })
 // Subscribe to ignition button press event in controls panel
-controlsPanel.onIgnitionToggle(() => {
-    if (driveState === DriveState.STOP) {
+controlsPanel.registerIgnitionCallback((ignitionOn) => {
+    if (ignitionOn) {
+        console.log('Ignition ON')
         soundEngine.ignitionOn()
     } else {
+        console.log('Ignition OFF')
         soundEngine.ignitionOff()
     }
 })
+console.log('Controls panel created', controlsPanel)
 
 /** @type {Object} Audio volume meter system */
 const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
@@ -1073,8 +1066,6 @@ dbgAudioEmitters = dbgAudio.add(dbgAudioSettings, 'Emitters').onChange(v => {
 /** @type {Array<string>} Available car models (currently only RX-7) */
 const fakeListOfCars = ['Mazda RX-7 FD']
 dbgVehCarSelect = dbgVehicle.add({ car: fakeListOfCars[0] }, 'car', fakeListOfCars).name('Car').onChange(v => {})
-dbgVehIgnOn = dbgVehicle.add(soundEngine, 'ignitionOn').name('Ignition On')
-dbgVehIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').hide()
 
 /**
  * Resource Cleanup & Disposal
