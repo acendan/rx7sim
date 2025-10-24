@@ -8,7 +8,7 @@ import * as dat from 'lil-gui'
 THREE.ColorManagement.enabled = false
 
 import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
-import { colorToHex } from './systems/helpers.js'
+import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser } from './systems/helpers.js'
 var driveState = DriveState.STOP
 var soloState = SoloState.MIX
 
@@ -87,7 +87,7 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
     if (name === 'None') {
         // Dispose previously loaded HDR texture and restore defaults
         if (currentHDRTexture) {
-            try { currentHDRTexture.dispose() } catch (_) {}
+            disposeTexture(currentHDRTexture)
             currentHDRTexture = null
         }
         scene.background = originalBackground.clone ? originalBackground.clone() : originalBackground
@@ -135,7 +135,7 @@ dbgVehLevelSelect = dbgVehicle.add(hdrParams, 'HDR', hdrOptions).name('Level Sel
     rgbeLoader.load(path, (texture) => {
         // Dispose previous texture if any
         if (currentHDRTexture) {
-            try { currentHDRTexture.dispose() } catch (_) {}
+            disposeTexture(currentHDRTexture)
         }
 
         texture.mapping = THREE.EquirectangularReflectionMapping
@@ -456,7 +456,8 @@ const sizes = {
     height: window.innerHeight
 }
 
-window.addEventListener('resize', () => {
+// Store resize handler so we can remove it if needed
+const handleResize = () => {
     sizes.width = window.innerWidth
     sizes.height = window.innerHeight
 
@@ -465,7 +466,9 @@ window.addEventListener('resize', () => {
 
     renderer.setSize(sizes.width, sizes.height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-})
+}
+
+window.addEventListener('resize', handleResize)
 
 /**
  * Camera
@@ -712,8 +715,12 @@ const soundEngine = {
             if (em._reverbNodes) {
                 try {
                     const { dryGain, wetGain, convolver } = em._reverbNodes
-                    dryGain.disconnect(); wetGain.disconnect(); convolver.disconnect();
-                } catch(_) {}
+                    dryGain.disconnect()
+                    wetGain.disconnect()
+                    convolver.disconnect()
+                } catch (err) {
+                    console.warn('Error disconnecting reverb nodes:', err)
+                }
                 em._reverbNodes = null
             }
         })
@@ -789,6 +796,104 @@ const fakeListOfCars = ['Mazda RX-7 FD']
 dbgVehCarSelect = dbgVehicle.add({ car: fakeListOfCars[0] }, 'car', fakeListOfCars).name('Car').onChange(v => {})
 dbgVehIgnOn = dbgVehicle.add(soundEngine, 'ignitionOn').name('Ignition On')
 dbgVehIgnOff = dbgVehicle.add(soundEngine, 'ignitionOff').name('Ignition Off').hide()
+
+/**
+ * Cleanup & Resource Management
+ */
+function disposeAll() {
+    console.log('Cleaning up resources...')
+
+    // Stop animation loop
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
+    }
+
+    // Clean up line buttons
+    lineButtons.forEach(btn => {
+        if (btn && btn.dispose) {
+            btn.dispose()
+        }
+    })
+    lineButtons.length = 0
+
+    // Clean up emitter debuggers
+    emitterDebuggers.forEach(helper => {
+        disposeObject(helper)
+    })
+    emitterDebuggers.clear()
+
+    // Clean up audio meters
+    if (audioMeters && audioMeters.dispose) {
+        audioMeters.dispose()
+    }
+
+    // Clean up audio emitters
+    Object.values(audioEmitters).forEach(emitter => {
+        disposeAudioEmitter(emitter)
+    })
+
+    // Clean up particle system
+    if (particleSystem && particleSystem.dispose) {
+        particleSystem.dispose()
+    }
+
+    // Dispose current HDR texture
+    if (currentHDRTexture) {
+        disposeTexture(currentHDRTexture)
+        currentHDRTexture = null
+    }
+
+    // Dispose scene objects
+    if (carGroup) {
+        disposeObject(carGroup)
+    }
+    if (floor) {
+        disposeObject(floor)
+    }
+
+    // Clean up animation mixers
+    if (anims.mixerWheels) {
+        anims.mixerWheels.stopAllAction()
+        anims.mixerWheels = null
+    }
+    if (anims.mixerLights) {
+        anims.mixerLights.stopAllAction()
+        anims.mixerLights = null
+    }
+
+    // Dispose lights
+    if (hemiLight) {
+        scene.remove(hemiLight)
+    }
+    if (ambientLight) {
+        scene.remove(ambientLight)
+    }
+    directionalLights.forEach(light => {
+        scene.remove(light)
+        light.dispose()
+    })
+
+    // Dispose renderer
+    if (renderer) {
+        renderer.dispose()
+    }
+
+    // Dispose debug UI
+    if (dbg) {
+        dbg.destroy()
+    }
+
+    console.log('Cleanup complete')
+}
+
+// Store animation frame ID so we can cancel it
+let animationFrameId = null
+
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+    disposeAll()
+})
 
 /**
  * Main
@@ -874,7 +979,7 @@ const tick = () => {
     renderer.render(scene, camera)
 
     // Call tick again on the next frame
-    window.requestAnimationFrame(tick)
+    animationFrameId = window.requestAnimationFrame(tick)
 }
 
 tick()

@@ -3,6 +3,131 @@ import { ConeEmitterSettings } from './constants.js'
 // Note: colorToHex is defined below; forward usage inside file is fine.
 
 /**
+ * Recursively dispose of Three.js object and all its children
+ * Cleans up geometries, materials, textures, and render targets
+ * @param {THREE.Object3D} object - Object to dispose
+ */
+export function disposeObject(object) {
+    if (!object) return
+
+    // Traverse all children first
+    if (object.children) {
+        for (let i = object.children.length - 1; i >= 0; i--) {
+            disposeObject(object.children[i])
+        }
+    }
+
+    // Dispose geometry
+    if (object.geometry) {
+        object.geometry.dispose()
+    }
+
+    // Dispose material(s)
+    if (object.material) {
+        if (Array.isArray(object.material)) {
+            object.material.forEach(material => disposeMaterial(material))
+        } else {
+            disposeMaterial(object.material)
+        }
+    }
+
+    // Dispose render target
+    if (object.renderTarget) {
+        object.renderTarget.dispose()
+    }
+
+    // Remove from parent
+    if (object.parent) {
+        object.parent.remove(object)
+    }
+}
+
+/**
+ * Dispose of a material and its textures
+ * @param {THREE.Material} material - Material to dispose
+ */
+function disposeMaterial(material) {
+    if (!material) return
+
+    // Dispose all texture properties
+    Object.keys(material).forEach(prop => {
+        const value = material[prop]
+        if (value && typeof value === 'object' && 'minFilter' in value) {
+            // It's a texture
+            value.dispose()
+        }
+    })
+
+    material.dispose()
+}
+
+/**
+ * Dispose of an HDR texture with error handling
+ * @param {THREE.Texture} texture - Texture to dispose
+ */
+export function disposeTexture(texture) {
+    if (!texture) return
+    
+    try {
+        texture.dispose()
+    } catch (err) {
+        console.error('Failed to dispose texture:', err)
+    }
+}
+
+/**
+ * Stop and disconnect a positional audio emitter, cleaning up its resources
+ * @param {THREE.PositionalAudio} emitter - Audio emitter to clean up
+ */
+export function disposeAudioEmitter(emitter) {
+    if (!emitter) return
+
+    try {
+        // Stop playback
+        if (emitter.isPlaying) {
+            emitter.stop()
+        }
+
+        // Disconnect custom reverb nodes if present
+        if (emitter._reverbNodes) {
+            const { dryGain, wetGain, convolver } = emitter._reverbNodes
+            try {
+                dryGain.disconnect()
+                wetGain.disconnect()
+                convolver.disconnect()
+            } catch (err) {
+                console.warn('Error disconnecting reverb nodes:', err)
+            }
+            emitter._reverbNodes = null
+        }
+
+        // Disconnect the emitter itself
+        emitter.disconnect()
+
+        // Clear buffer reference
+        emitter.buffer = null
+    } catch (err) {
+        console.error('Failed to dispose audio emitter:', err)
+    }
+}
+
+/**
+ * Clean up an audio analyser
+ * @param {THREE.AudioAnalyser} analyser - Analyser to clean up
+ */
+export function disposeAudioAnalyser(analyser) {
+    if (!analyser) return
+
+    try {
+        if (analyser.analyser) {
+            analyser.analyser.disconnect()
+        }
+    } catch (err) {
+        console.warn('Error disposing audio analyser:', err)
+    }
+}
+
+/**
  * Create a configured directional light
  * @param {Object} opts - options
  * @param {Number} opts.color - hex color
@@ -324,10 +449,27 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         }
     }
 
+    // Clean up DOM element and event listeners
+    function dispose() {
+        if (domButton && domButton.parentElement) {
+            domButton.removeEventListener('mouseenter', null)
+            domButton.removeEventListener('mouseleave', null)
+            domButton.parentElement.removeChild(domButton)
+            domButton = null
+        }
+        if (line.geometry) {
+            line.geometry.dispose()
+        }
+        if (line.material) {
+            line.material.dispose()
+        }
+    }
+
     return {
         line,
         button: domButton,
         update,
-        setVisible
+        setVisible,
+        dispose
     }
 }

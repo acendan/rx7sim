@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 
+const MAX_PARTICLES = 1000
 const smokeParticles = []
 const smokeGeometry = new THREE.BufferGeometry()
-const smokePositions = new Float32Array(1000 * 3) // Max 1000 particles, xyz positions
-const smokeColors = new Float32Array(1000 * 4) // RGBA colors
-const smokeSizes = new Float32Array(1000) // Particle sizes
+const smokePositions = new Float32Array(MAX_PARTICLES * 3) // Max particles, xyz positions
+const smokeColors = new Float32Array(MAX_PARTICLES * 4) // RGBA colors
+const smokeSizes = new Float32Array(MAX_PARTICLES) // Particle sizes
 
 smokeGeometry.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3))
 smokeGeometry.setAttribute('color', new THREE.BufferAttribute(smokeColors, 4))
@@ -74,6 +75,11 @@ export const particleSystem = {
                 emitter.settings.elapsed -= add * emitter.settings.add_time
 
                 while (add--) {
+                    // Enforce max particle limit to prevent unbounded memory growth
+                    if (smokeParticles.length >= MAX_PARTICLES) {
+                        break
+                    }
+
                     // Create new particle
                     const radius_1 = emitter.settings.radius_1 * Math.sqrt(Math.random())
                     const theta = 2 * Math.PI * Math.random()
@@ -167,5 +173,20 @@ export const particleSystem = {
     },
     getMesh: () => {
         return smokePoints
+    },
+    dispose: () => {
+        // Clear particle array
+        smokeParticles.length = 0
+        
+        // Dispose geometry and material
+        if (smokeGeometry) {
+            smokeGeometry.dispose()
+        }
+        if (smokeMaterial) {
+            smokeMaterial.dispose()
+        }
+        
+        // Clear emitters
+        particleSystem.emitters.length = 0
     }
 }

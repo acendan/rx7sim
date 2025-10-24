@@ -138,9 +138,30 @@ export function createMixer({ emitters = {}, initialVisible = false } = {}) {
         if (panel) panel.style.display = visible ? '' : 'none'
     }
 
+    function dispose() {
+        // Clean up analysers
+        analysers.forEach(analyser => {
+            if (analyser && analyser.analyser) {
+                try {
+                    analyser.analyser.disconnect()
+                } catch (err) {
+                    console.warn('Error disposing analyser:', err)
+                }
+            }
+        })
+        analysers.clear()
+
+        // Remove DOM panel
+        if (panel && panel.parentElement) {
+            panel.parentElement.removeChild(panel)
+            panel = null
+        }
+    }
+
     return {
         update,
         setVisible,
-        isVisible: () => visible
+        isVisible: () => visible,
+        dispose
     }
 }
