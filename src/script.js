@@ -381,8 +381,6 @@ async function initializeModels() {
         carGroup.add(anims.headLightR)
         carGroup.add(anims.headLightR.target)
 
-        dbgVehicle.add(anims, 'lights').name('Headlights')
-
         setupSoloButtons(gltfCar.scene)
 
         initState.modelsLoaded = true
@@ -1002,16 +1000,19 @@ dbgAudioReverb = dbgAudio.add(reverbParams, 'Reverb', ['None', ...Object.keys(re
 })
 
 /** @type {Object} Ignition and other controls */
-const controlsPanel = createControls({ initialVisible: true })
+const controlsPanel = createControls({ initVisible: true, initIgnition: false, initHeadlights: true })
 // Subscribe to ignition button press event in controls panel
 controlsPanel.registerIgnitionCallback((ignitionOn) => {
+    console.log('Ignition:', ignitionOn ? 'ON' : 'OFF')
     if (ignitionOn) {
-        console.log('Ignition ON')
         soundEngine.ignitionOn()
     } else {
-        console.log('Ignition OFF')
         soundEngine.ignitionOff()
     }
+})
+controlsPanel.registerHeadlightsCallback((headlightsOn) => {
+    console.log('Headlights:', headlightsOn ? 'ON' : 'OFF')
+    anims.lights()
 })
 console.log('Controls panel created', controlsPanel)
 
