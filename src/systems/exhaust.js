@@ -66,12 +66,12 @@ const particlePool = {
                 blend: 0,
                 texture: 0,
                 live: 0,
-                scale_increase: 0,
-                opacity_decrease: 0,
-                color_from: [0, 0, 0],
-                color_to: [0, 0, 0],
-                color_speed: 0,
-                color_pr: 0
+                scaleIncrease: 0,
+                opacityDecrease: 0,
+                colorFrom: [0, 0, 0],
+                colorTo: [0, 0, 0],
+                colorSpeed: 0,
+                colorProgress: 0
             }
         }
         this.active.push(particle)
@@ -131,26 +131,26 @@ export const particleSystem = {
             enabled: false,
             position: new THREE.Vector3(-0.5, 0.3, -2.0), // Tailpipe position relative to car
             settings: {
-                radius_1: 0.02,
-                radius_2: 0.1,
-                radius_height: 0.2,
-                add_time: 0.02,
+                radius1: 0.02,
+                radius2: 0.1,
+                radiusHeight: 0.2,
+                addTime: 0.02,
                 elapsed: 0,
-                live_time_from: 1.0,
-                live_time_to: 1.5,
-                opacity_decrease: 0.008,
-                rotation_from: 0.5,
-                rotation_to: 1.0,
-                speed_from: 0.003,
-                speed_to: 0.006,
-                scale_from: 0.1,
-                scale_increase: 0.002,
-                color_from: [0.9, 0.9, 0.9],
-                color_to: [0.5, 0.5, 0.5],
-                color_speed_from: 1.0,
-                color_speed_to: 1.0,
-                brightness_from: 0.5,
-                brightness_to: 0.9,
+                liveTimeFrom: 1.0,
+                liveTimeTo: 1.5,
+                opacityDecrease: 0.008,
+                rotationFrom: 0.5,
+                rotationTo: 1.0,
+                speedFrom: 0.003,
+                speedTo: 0.006,
+                scaleFrom: 0.1,
+                scaleIncrease: 0.002,
+                colorFrom: [0.9, 0.9, 0.9],
+                colorTo: [0.5, 0.5, 0.5],
+                colorSpeedFrom: 1.0,
+                colorSpeedTo: 1.0,
+                brightnessFrom: 0.5,
+                brightnessTo: 0.9,
                 opacity: 0.6,
                 blend: 0.8,
                 texture: 0.5  // Smoke texture
@@ -174,9 +174,9 @@ export const particleSystem = {
         particleSystem.emitters.forEach(emitter => {
             if (engineState !== 'stop') {
                 emitter.enabled = true
-                emitter.settings.add_time = engineState === 'accel' ? 0.01 : 0.02 // More particles during acceleration  
-                emitter.settings.speed_from = engineState === 'accel' ? 0.005 : 0.003
-                emitter.settings.speed_to = engineState === 'accel' ? 0.008 : 0.006
+                emitter.settings.addTime = engineState === 'accel' ? 0.01 : 0.02 // More particles during acceleration  
+                emitter.settings.speedFrom = engineState === 'accel' ? 0.005 : 0.003
+                emitter.settings.speedTo = engineState === 'accel' ? 0.008 : 0.006
             } else {
                 emitter.enabled = false
             }
@@ -184,8 +184,8 @@ export const particleSystem = {
             if (emitter.enabled) {
                 let add = 0
                 emitter.settings.elapsed += deltaTime
-                add = Math.floor(emitter.settings.elapsed / emitter.settings.add_time)
-                emitter.settings.elapsed -= add * emitter.settings.add_time
+                add = Math.floor(emitter.settings.elapsed / emitter.settings.addTime)
+                emitter.settings.elapsed -= add * emitter.settings.addTime
 
                 while (add--) {
                     // Enforce max particle limit to prevent unbounded memory growth
@@ -197,54 +197,54 @@ export const particleSystem = {
                     const p = particlePool.acquire()
 
                     // Initialize particle position
-                    const radius_1 = emitter.settings.radius_1 * Math.sqrt(Math.random())
+                    const radius1 = emitter.settings.radius1 * Math.sqrt(Math.random())
                     const theta = 2 * Math.PI * Math.random()
-                    const x_1 = emitter.position.x + radius_1 * Math.cos(theta)
-                    const z_1 = emitter.position.z + radius_1 * Math.sin(theta)
+                    const x1 = emitter.position.x + radius1 * Math.cos(theta)
+                    const z1 = emitter.position.z + radius1 * Math.sin(theta)
 
-                    const radius_2 = emitter.settings.radius_2 * Math.sqrt(Math.random())
-                    const x_2 = x_1 + radius_2 * Math.cos(theta)
-                    const z_2 = z_1 + radius_2 * Math.sin(theta)
+                    const radius2 = emitter.settings.radius2 * Math.sqrt(Math.random())
+                    const x2 = x1 + radius2 * Math.cos(theta)
+                    const z2 = z1 + radius2 * Math.sin(theta)
 
                     const direction = new THREE.Vector3(
-                        x_2 - x_1,
-                        emitter.settings.radius_height,
-                        z_2 - z_1
+                        x2 - x1,
+                        emitter.settings.radiusHeight,
+                        z2 - z1
                     ).normalize()
 
-                    const speed = Math.random() * (emitter.settings.speed_to - emitter.settings.speed_from) + emitter.settings.speed_from
+                    const speed = Math.random() * (emitter.settings.speedTo - emitter.settings.speedFrom) + emitter.settings.speedFrom
                     direction.multiplyScalar(speed)
 
-                    const brightness = Math.random() * (emitter.settings.brightness_to - emitter.settings.brightness_from) + emitter.settings.brightness_from
+                    const brightness = Math.random() * (emitter.settings.brightnessTo - emitter.settings.brightnessFrom) + emitter.settings.brightnessFrom
 
                     // Reuse particle object instead of creating new one
-                    p.offset[0] = x_1
+                    p.offset[0] = x1
                     p.offset[1] = emitter.position.y
-                    p.offset[2] = z_1
-                    p.scale[0] = emitter.settings.scale_from
-                    p.scale[1] = emitter.settings.scale_from
+                    p.offset[2] = z1
+                    p.scale[0] = emitter.settings.scaleFrom
+                    p.scale[1] = emitter.settings.scaleFrom
                     p.quaternion[0] = direction.x
                     p.quaternion[1] = direction.y
                     p.quaternion[2] = direction.z
                     p.quaternion[3] = 3
-                    p.rotation = Math.random() * (emitter.settings.rotation_to - emitter.settings.rotation_from) + emitter.settings.rotation_from
+                    p.rotation = Math.random() * (emitter.settings.rotationTo - emitter.settings.rotationFrom) + emitter.settings.rotationFrom
                     p.color[0] = 1
                     p.color[1] = 1
                     p.color[2] = 1
                     p.color[3] = emitter.settings.opacity
                     p.blend = emitter.settings.blend
                     p.texture = emitter.settings.texture
-                    p.live = Math.random() * (emitter.settings.live_time_to - emitter.settings.live_time_from) + emitter.settings.live_time_from
-                    p.scale_increase = emitter.settings.scale_increase
-                    p.opacity_decrease = emitter.settings.opacity_decrease
-                    p.color_from[0] = emitter.settings.color_from[0] * brightness
-                    p.color_from[1] = emitter.settings.color_from[1] * brightness
-                    p.color_from[2] = emitter.settings.color_from[2] * brightness
-                    p.color_to[0] = emitter.settings.color_to[0] * brightness
-                    p.color_to[1] = emitter.settings.color_to[1] * brightness
-                    p.color_to[2] = emitter.settings.color_to[2] * brightness
-                    p.color_speed = Math.random() * (emitter.settings.color_speed_to - emitter.settings.color_speed_from) + emitter.settings.color_speed_from
-                    p.color_pr = 0
+                    p.live = Math.random() * (emitter.settings.liveTimeTo - emitter.settings.liveTimeFrom) + emitter.settings.liveTimeFrom
+                    p.scaleIncrease = emitter.settings.scaleIncrease
+                    p.opacityDecrease = emitter.settings.opacityDecrease
+                    p.colorFrom[0] = emitter.settings.colorFrom[0] * brightness
+                    p.colorFrom[1] = emitter.settings.colorFrom[1] * brightness
+                    p.colorFrom[2] = emitter.settings.colorFrom[2] * brightness
+                    p.colorTo[0] = emitter.settings.colorTo[0] * brightness
+                    p.colorTo[1] = emitter.settings.colorTo[1] * brightness
+                    p.colorTo[2] = emitter.settings.colorTo[2] * brightness
+                    p.colorSpeed = Math.random() * (emitter.settings.colorSpeedTo - emitter.settings.colorSpeedFrom) + emitter.settings.colorSpeedFrom
+                    p.colorProgress = 0
                 }
             }
         });
@@ -260,18 +260,18 @@ export const particleSystem = {
             p.offset[2] += p.quaternion[2]
 
             // Update scale
-            p.scale[0] += p.scale_increase
-            p.scale[1] += p.scale_increase
+            p.scale[0] += p.scaleIncrease
+            p.scale[1] += p.scaleIncrease
 
             // Update color
-            p.color_pr += p.color_speed
-            if (p.color_pr > 1) p.color_pr = 1
-            p.color[0] = p.color_from[0] + (p.color_to[0] - p.color_from[0]) * p.color_pr
-            p.color[1] = p.color_from[1] + (p.color_to[1] - p.color_from[1]) * p.color_pr
-            p.color[2] = p.color_from[2] + (p.color_to[2] - p.color_from[2]) * p.color_pr
+            p.colorProgress += p.colorSpeed
+            if (p.colorProgress > 1) p.colorProgress = 1
+            p.color[0] = p.colorFrom[0] + (p.colorTo[0] - p.colorFrom[0]) * p.colorProgress
+            p.color[1] = p.colorFrom[1] + (p.colorTo[1] - p.colorFrom[1]) * p.colorProgress
+            p.color[2] = p.colorFrom[2] + (p.colorTo[2] - p.colorFrom[2]) * p.colorProgress
 
             // Update opacity
-            p.color[3] -= p.opacity_decrease
+            p.color[3] -= p.opacityDecrease
 
             // Remove dead particles and return to pool
             p.live -= deltaTime
