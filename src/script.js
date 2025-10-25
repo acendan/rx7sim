@@ -889,6 +889,10 @@ const soundEngine = {
                 }
             });
         });
+        // Shoot flames!!!
+        if (duration >= ThrottleMap.long) {
+            particleSystem.triggerBackfire();
+        }
     },
 
     /**
