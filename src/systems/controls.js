@@ -350,7 +350,12 @@ export function createControls({ initVisible = false, initIgnition = false, init
             } else if (pressDuration < ThrottleMap.short && !throttlePressed) {
                 if (throttleCallback) throttleCallback(ThrottleMap.short)
                 throttlePressStart = 0
+            } else {
+                return // Still pressing
             }
+
+            // Button released, reset style (or long press threshold reached)
+            throttleBtn.style.background = 'linear-gradient(to bottom, #444 0%, #222 100%)'
         }
     }
 

@@ -758,9 +758,9 @@ const soundEngine = {
      */
     buffers: {
         mix: {},
-        intake: { ignitionOn: null, idle: null, ignitionOff: null },
-        exhaust: { ignitionOn: null, idle: null, ignitionOff: null },
-        interior: { ignitionOn: null, idle: null, ignitionOff: null }
+        intake: { ignitionOn: null, idle: null, ignitionOff: null, revShort: null, revMedium: null, revLong: null },
+        exhaust: { ignitionOn: null, idle: null, ignitionOff: null, revShort: null, revMedium: null, revLong: null },
+        interior: { ignitionOn: null, idle: null, ignitionOff: null, revShort: null, revMedium: null, revLong: null }
     },
 
     /** @type {THREE.PositionalAudio|null} Currently active audio emitter */
@@ -801,6 +801,18 @@ const soundEngine = {
     },
 
     /**
+     * Transitions to engine idle (for use after ignition, revs, etc.)
+     */
+    idle: (audioLoader, emitter, pos) => {
+        playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
+            store: soundEngine.buffers[pos],
+            storeKey: 'idle',
+            loop: true,
+            onEnded: () => { }
+        });
+    },
+
+    /**
      * Starts engine ignition sequence across all audio emitters
      * Resumes audio context on first user interaction (handles browser autoplay policy)
      * Plays ignition sound followed by idle loop, starts wheel animations
@@ -823,12 +835,7 @@ const soundEngine = {
                 storeKey: 'ignitionOn',
                 loop: false,
                 onEnded: () => {
-                    playPositionalAudio(audioLoader, emitter, `./audio/${pos}/idle.ogg`, {
-                        store: soundEngine.buffers[pos],
-                        storeKey: 'idle',
-                        loop: true,
-                        onEnded: () => { }
-                    });
+                    soundEngine.idle(audioLoader, emitter, pos);
                 }
             });
         });
@@ -862,6 +869,26 @@ const soundEngine = {
         });
 
         driveState = DriveState.DECEL;
+    },
+
+    /**
+     * Revs engine based on throttle input duration
+     * @param {number} duration - The duration the throttle is pressed
+     */
+    revEngine(duration) {
+        const revType = duration >= ThrottleMap.long ? 'revLong' : duration >= ThrottleMap.medium ? 'revMedium' : 'revShort';
+        Object.entries(audioEmitters).forEach(([pos, emitter]) => {
+            if (pos === 'mix') return;
+
+            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/${revType}.ogg`, {
+                store: soundEngine.buffers[pos],
+                storeKey: revType,
+                loop: false,
+                onEnded: () => {
+                    soundEngine.idle(audioLoader, emitter, pos);
+                }
+            });
+        });
     },
 
     /**
@@ -1016,15 +1043,7 @@ controlsPanel.registerHeadlightsCallback((headlightsOn) => {
 })
 controlsPanel.registerThrottleCallback((duration) => {
     console.log('Throttle pressed:', duration, 'ms', duration >= ThrottleMap.long ? '(Long)' : duration >= ThrottleMap.medium ? '(Medium)' : '(Short)')
-    // #TODO: Implement throttle rev SFX
-    switch (duration) {
-        case ThrottleMap.short:
-            break;
-        case ThrottleMap.medium:
-            break;
-        case ThrottleMap.long:
-            break;
-    }
+    soundEngine.revEngine(duration)
 })
 console.log('Controls panel created', controlsPanel)
 
