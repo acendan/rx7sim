@@ -718,7 +718,7 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         domButton.style.fontSize = '14px'
         domButton.style.cursor = 'pointer'
         domButton.style.transform = 'translate(-50%, -50%)'
-        domButton.style.boxShadow = '0 2px 2px rgba(255, 255, 255, 0.24)'
+        domButton.style.boxShadow = '0 2px 2px rgba(0, 0, 0, 0.25)'
         domButton.style.userSelect = 'none'
         domButton.textContent = label
         document.body.appendChild(domButton)
