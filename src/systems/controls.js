@@ -29,12 +29,15 @@ export function createControls({ initVisible = false, initIgnition = false, init
     let panel = null
     let visible = initVisible
 
+    let ignitionBtn = null
     let ignitionOn = initIgnition
     let ignitionCallback = null
 
+    let headlightsBtn = null
     let headlightsOn = initHeadlights
     let headlightsCallback = null
 
+    let throttleBtn = null
     let throttlePressStart = 0
     let throttlePressed = false
     let throttleCallback = null
@@ -88,7 +91,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
         })
 
         // Circular "Push to Start/Stop" button
-        const ignitionBtn = document.createElement('button')
+        ignitionBtn = document.createElement('button')
         ignitionBtn.className = 'ignition-toggle'
         ignitionBtn.innerHTML = `
             <span class="ignition-start" style="font-weight:bold;color:#fff;">START</span>
@@ -138,7 +141,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
         panel.appendChild(ignitionBtn)
 
         // Headlights toggle button, with dashboard-style headlight symbol
-        const headlightsBtn = document.createElement('button')
+        headlightsBtn = document.createElement('button')
         headlightsBtn.className = 'headlights-toggle'
         headlightsBtn.innerHTML = `
             <span style="
@@ -242,7 +245,7 @@ export function createControls({ initVisible = false, initIgnition = false, init
         panel.appendChild(headlightsBtn)
 
         // Throttle pedal button to the right of the ignition button (only visible when ignition is on)
-        const throttleBtn = document.createElement('button')
+        throttleBtn = document.createElement('button')
         throttleBtn.className = 'throttle-pedal'
         throttleBtn.innerHTML = `
             <span style="
@@ -314,7 +317,6 @@ export function createControls({ initVisible = false, initIgnition = false, init
 
         // Use mouse down and mouse up events to simulate pedal press and pass short medium or long presses to throttle callback
         throttleBtn.addEventListener('mousedown', () => {
-            throttleBtn.style.background = 'linear-gradient(to bottom, #666 0%, #444 100%)'
             throttlePressStart = performance.now()
             throttlePressed = true
         })
@@ -333,6 +335,12 @@ export function createControls({ initVisible = false, initIgnition = false, init
     function handleThrottlePress() {
         if (throttlePressStart > 0) {
             const pressDuration = performance.now() - throttlePressStart
+            
+            // Taper button color based on press duration
+            const colorValue = Math.max(0, 1 - pressDuration / ThrottleMap.long)    // Goes from 1 down to 0 over time
+            throttleBtn.style.background = `linear-gradient(to bottom, rgba(20, 20, 20, ${colorValue}) 100%, rgba(255, 255, 255, ${colorValue}) 100%)`
+
+            // Fire callback based on thresholds
             if (pressDuration >= ThrottleMap.long) {
                 if (throttleCallback) throttleCallback(ThrottleMap.long)
                 throttlePressStart = 0
