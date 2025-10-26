@@ -67,13 +67,13 @@ export function checkWebAudioSupport() {
 }
 
 /** 
- * Check if user is on mobile device based on user agent
+ * Check if user is on mobile device
  * @returns {boolean} True if mobile device is detected, false otherwise
  */
 export function isMobileDevice() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    // Check for common mobile user agents
-    return /android|iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    // Consider aspect < 0.8 as likely mobile (portrait or very tall)
+    const aspect = window.innerWidth / window.innerHeight
+    return aspect < 0.8
 }
 
 /**
