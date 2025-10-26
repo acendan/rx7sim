@@ -673,7 +673,7 @@ function getCameraPosition(width, height) {
     // Base distance for 1920x1080 screens
     const base = { x: 4, y: 2, z: 3 }
     // Scale factor: smaller screens move camera further back
-    const scale = Math.max(1, 1920 / Math.max(width, 900))
+    const scale = isMobileDevice() ? Math.max(1, 1920 / Math.max(width, 900)) : 1
     return {
         x: base.x * scale,
         y: base.y * scale,
