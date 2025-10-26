@@ -765,6 +765,15 @@ const soundEngine = {
     /** @type {THREE.PositionalAudio|null} Currently active audio emitter */
     currentEmitter: null,
 
+    /** Last heard rev sound variation for each duration 
+     * @type {Object<string, string|null>}
+     */
+    lastRevVariations: {
+        revLong: null,
+        revMedium: null,
+        revShort: null
+    },
+
     /**
      * Sets volume levels for all positional audio emitters based on solo state
      * Handles smooth volume transitions and applies global multipliers from constants
@@ -870,18 +879,39 @@ const soundEngine = {
         driveState = DriveState.DECEL;
     },
 
+    /** Get variation based on throttle input duration */
+    getRevVariation(revType) {
+        const last = this.lastRevVariations[revType];
+        const options = ['01', '02', '03'];
+
+        // If no previous, pick '01'
+        if (last === null) {
+            this.lastRevVariations[revType] = '01';
+            return '01';
+        }
+
+        // Exclude last used, pick randomly from remaining
+        const choices = options.filter(opt => opt !== last);
+        const choice = choices[Math.floor(Math.random() * choices.length)];
+        this.lastRevVariations[revType] = choice;
+        return choice;
+    },
+
     /**
      * Revs engine based on throttle input duration
      * @param {number} duration - The duration the throttle is pressed
      */
     revEngine(duration) {
         const revType = duration >= ThrottleMap.long ? 'revLong' : duration >= ThrottleMap.medium ? 'revMedium' : 'revShort';
+        const variation = this.getRevVariation(revType);
+        console.log(`Revving engine: ${revType} variation ${variation}`);
+
         Object.entries(audioEmitters).forEach(([pos, emitter]) => {
             if (pos === 'mix') return;
 
-            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/${revType}.ogg`, {
+            playPositionalAudio(audioLoader, emitter, `./audio/${pos}/${revType}${variation}.ogg`, {
                 store: soundEngine.buffers[pos],
-                storeKey: revType,
+                storeKey: `${revType}${variation}`,
                 loop: false,
                 onEnded: () => {
                     soundEngine.idle(audioLoader, emitter, pos);
@@ -910,13 +940,13 @@ const soundEngine = {
                 ignitionOn: null,
                 idle: null,
                 ignitionOff: null,
-                revShort: null,
+                revShort01: null,
                 revShort02: null,
                 revShort03: null,
-                revMedium: null,
+                revMedium01: null,
                 revMedium02: null,
                 revMedium03: null,
-                revLong: null,
+                revLong01: null,
                 revLong02: null,
                 revLong03: null
             }
