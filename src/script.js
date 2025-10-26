@@ -16,7 +16,7 @@ import * as dat from 'lil-gui'
 THREE.ColorManagement.enabled = false
 
 import { DriveState, SoloState, SoloBtnColors, EmitterVolMults, ConeEmitterSettings, ThrottleMap, LightingDefaults, EnvironmentPresets } from './systems/constants.js'
-import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser, checkWebGLSupport, checkWebAudioSupport, showErrorUI, showLoadingUI, loadGLTFModel, loadAudioFile, loadHDRTexture } from './systems/helpers.js'
+import { colorToHex, disposeObject, disposeTexture, disposeAudioEmitter, disposeAudioAnalyser, checkWebGLSupport, checkWebAudioSupport, isMobileDevice, showErrorUI, showLoadingUI, loadGLTFModel, loadAudioFile, loadHDRTexture } from './systems/helpers.js'
 
 /** @type {string} Current driving state (STOP, DRIVE, ACCEL, DECEL) */
 var driveState = DriveState.STOP
@@ -75,10 +75,14 @@ scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
  */
 /** @type {dat.GUI} Main debug GUI controller */
 const dbg = new dat.GUI()
+if (isMobileDevice()) {
+    // Start hidden on mobile to avoid visual clutter
+    dbg.close()
+}
 
 /** @type {Object} Audio debug settings */
 const dbgAudioSettings = {
-    'Meters': true,
+    'Meters': !isMobileDevice(),    // Default hidden on mobile to avoid visual clutter
     'Emitters': false
 }
 /** @type {dat.GUI} Audio folder in debug UI */
@@ -664,7 +668,26 @@ window.addEventListener('resize', handleResize)
 
 /** @type {THREE.PerspectiveCamera} Main perspective camera */
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-camera.position.set(4, 2, 3)
+// Dynamically set camera position based on screen size to frame the car
+function getCameraPosition(width, height) {
+    // Base distance for 1920x1080 screens
+    const base = { x: 4, y: 2, z: 3 }
+    // Scale factor: smaller screens move camera further back
+    const scale = Math.max(1, 1920 / Math.max(width, 900))
+    return {
+        x: base.x * scale,
+        y: base.y * scale,
+        z: base.z * scale
+    }
+}
+const camPos = getCameraPosition(sizes.width, sizes.height)
+camera.position.set(camPos.x, camPos.y, camPos.z)
+
+// Update camera position on resize to keep car framed
+window.addEventListener('resize', () => {
+    const camPos = getCameraPosition(window.innerWidth, window.innerHeight)
+    camera.position.set(camPos.x, camPos.y, camPos.z)
+})
 scene.add(camera)
 
 /** @type {OrbitControls} Orbit camera controls with damping */
@@ -1111,7 +1134,7 @@ controlsPanel.registerThrottleCallback((duration) => {
 console.log('Controls panel created', controlsPanel)
 
 /** @type {Object} Audio volume meter system */
-const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: true })
+const audioMeters = createMixer({ emitters: audioEmitters, initialVisible: dbgAudioSettings['Meters'] })
 dbgAudioMeters = dbgAudio.add(dbgAudioSettings, 'Meters').onChange(v => audioMeters.setVisible(v))
 
 /** @type {Object} Performance monitoring system (FPS, frame time) */

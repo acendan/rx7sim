@@ -66,6 +66,16 @@ export function checkWebAudioSupport() {
     }
 }
 
+/** 
+ * Check if user is on mobile device based on user agent
+ * @returns {boolean} True if mobile device is detected, false otherwise
+ */
+export function isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    // Check for common mobile user agents
+    return /android|iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+}
+
 /**
  * Creates and displays an error overlay with a message
  * Used for critical errors and non-blocking warnings
@@ -717,11 +727,13 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         domButton.color = color
         domButton.dimmed = false
         domButton.className = 'three-linebutton'
-        domButton.style.position = 'absolute'
+        domButton.style.position = 'fixed' // Use fixed positioning for screen-relative placement
+        domButton.style.left = '50%'       // Start centered, will be updated in update()
+        domButton.style.top = '50%'
         domButton.style.padding = '4px 12px'
         domButton.style.border = 'none'
         domButton.style.borderRadius = '12px'
-    domButton.style.backgroundColor = colorToHex(color)
+        domButton.style.backgroundColor = colorToHex(color)
         domButton.style.color = '#272727ff'
         domButton.style.fontFamily = 'sans-serif'
         domButton.style.fontSize = '14px'
@@ -730,6 +742,7 @@ export function createLineButton({ screenAnchor = new THREE.Vector2(-0.9, 0.9), 
         domButton.style.boxShadow = '0 2px 2px rgba(0, 0, 0, 0.25)'
         domButton.style.userSelect = 'none'
         domButton.textContent = label
+        domButton.style.zIndex = '10001'
         document.body.appendChild(domButton)
 
         // Add hover effect
