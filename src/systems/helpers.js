@@ -605,7 +605,6 @@ export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distan
     left.shadow.camera.near = 0.5
     left.shadow.camera.far = 20
     left.shadow.camera.fov = 30
-
     const right = new THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
     right.position.set(...rightPosition)
     right.target.position.set(...targetPosition)
@@ -616,7 +615,17 @@ export function createHeadlightSpots({ color = 0xFFFFDE, intensity = 3.0, distan
     right.shadow.camera.far = 20
     right.shadow.camera.fov = 30
 
-    return { left, right }
+    // Backlights (dimmed, no shadows)
+    const leftBack = new THREE.SpotLight(color, intensity * 20.0, distance * 0.02, angle, penumbra, decay)
+    leftBack.position.set(leftPosition[0] - 0.15, leftPosition[1] - 0.075, leftPosition[2] + 0.2)
+    leftBack.target.position.set(targetPosition[0], targetPosition[1], -targetPosition[2])
+    leftBack.castShadow = false
+    const rightBack = new THREE.SpotLight(color, intensity * 20.0, distance * 0.02, angle, penumbra, decay)
+    rightBack.position.set(rightPosition[0] + 0.15, rightPosition[1] - 0.075, rightPosition[2] + 0.2)
+    rightBack.target.position.set(targetPosition[0], targetPosition[1], -targetPosition[2])
+    rightBack.castShadow = false
+
+    return { left, right, leftBack, rightBack }
 }
 
 /**

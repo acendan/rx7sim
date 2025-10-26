@@ -270,6 +270,8 @@ const lineButtons = []
  * @property {THREE.AnimationAction|null} actLights0-4 - Individual light animation actions (5 total)
  * @property {THREE.SpotLight|null} headLightL - Left headlight spot light
  * @property {THREE.SpotLight|null} headLightR - Right headlight spot light
+ * @property {THREE.SpotLight|null} headLightLBack - Left headlight bulb backlighting spot light
+ * @property {THREE.SpotLight|null} headLightRBack - Right headlight bulb backlighting spot light
  * @property {boolean} lightsFlipFlop - State toggle for headlight animation direction
  * @property {number} lightsIntensity - Current headlight intensity multiplier
  * @property {function(): void} lightsTimeScaleToggle - Toggles headlight animation direction
@@ -280,7 +282,7 @@ let anims = {
 
     mixerLights: null,
     actLights0: null, actLights1: null, actLights2: null, actLights3: null, actLights4: null,
-    headLightL: null, headLightR: null,
+    headLightL: null, headLightR: null, headlightLBack: null, headlightRBack: null,
     lightsFlipFlop: true,
     lightsIntensity: 3.0,
     lightsTimeScaleToggle: () => {
@@ -373,13 +375,24 @@ async function initializeModels() {
             anims[key].clampWhenFinished = true
         }
 
-        const { left: headLightL, right: headLightR } = createHeadlightSpots({ intensity: anims.lightsIntensity })
+        const { left: headLightL, right: headLightR, leftBack: headLightLBack, rightBack: headLightRBack } = createHeadlightSpots({ intensity: anims.lightsIntensity })
         anims.headLightL = headLightL
         anims.headLightR = headLightR
+        anims.headLightLBack = headLightLBack
+        anims.headLightRBack = headLightRBack
         carGroup.add(anims.headLightL)
         carGroup.add(anims.headLightL.target)
         carGroup.add(anims.headLightR)
         carGroup.add(anims.headLightR.target)
+        carGroup.add(anims.headLightLBack)
+        carGroup.add(anims.headLightLBack.target)
+        carGroup.add(anims.headLightRBack)
+        carGroup.add(anims.headLightRBack.target)
+
+        // Spotlight helpers
+        // const leftBackHelper = new THREE.SpotLightHelper(anims.headLightLBack)
+        // const rightBackHelper = new THREE.SpotLightHelper(anims.headLightRBack)
+        // scene.add(leftBackHelper, rightBackHelper)
 
         setupSoloButtons(gltfCar.scene)
 
@@ -1333,9 +1346,15 @@ const tick = () => {
         if (anims.mixerLights) {
             anims.mixerLights.update(deltaTime)
 
-            if (anims.actLights0 && anims.headLightL && anims.headLightR) {
+            if (anims.actLights0 && anims.headLightL && anims.headLightR && anims.headLightLBack && anims.headLightRBack) {
                 const headLightsIntensity = anims.lightsIntensity - (anims.actLights0.time / anims.actLights0.getClip().duration) * anims.lightsIntensity
                 anims.headLightL.intensity = anims.headLightR.intensity = headLightsIntensity
+
+                // Exponential ramp for backlight intensity (starts high, fades out)
+                const backlightMax = anims.lightsIntensity * 50.0;
+                const t = anims.actLights0.time / anims.actLights0.getClip().duration;
+                const backlightIntensity = backlightMax * Math.exp(-10 * t);
+                anims.headLightLBack.intensity = anims.headLightRBack.intensity = backlightIntensity;
             }
         }
 
