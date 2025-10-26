@@ -74,15 +74,14 @@ scene.fog = new THREE.FogExp2(0xefd1b5, 0.05);
  * Debug UI controls using lil-gui
  */
 /** @type {dat.GUI} Main debug GUI controller */
-const dbg = new dat.GUI()
+const dbg = new dat.GUI() // Default hidden on mobile to avoid visual clutter
 if (isMobileDevice()) {
-    // Start hidden on mobile to avoid visual clutter
     dbg.close()
 }
 
 /** @type {Object} Audio debug settings */
 const dbgAudioSettings = {
-    'Meters': !isMobileDevice(),    // Default hidden on mobile to avoid visual clutter
+    'Meters': !isMobileDevice(),                    // Default hidden on mobile to avoid visual clutter
     'Emitters': false
 }
 /** @type {dat.GUI} Audio folder in debug UI */
@@ -1399,6 +1398,15 @@ const tick = () => {
 
         if (controlsPanel && controlsPanel.update) {
             controlsPanel.update()
+
+            // Hide/Show controlsPanel if debugger is opened/closed on mobile
+            if (isMobileDevice()) {
+                if (controlsPanel.isVisible() && !dbg._closed) {
+                    controlsPanel.setVisible(false)
+                } else if (!controlsPanel.isVisible() && dbg._closed) {
+                    controlsPanel.setVisible(true)
+                }
+            }
         }
 
         if (audioMeters && audioMeters.update) {
