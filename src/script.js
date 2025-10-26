@@ -757,10 +757,9 @@ const soundEngine = {
      * @type {Object<string, Object<string, AudioBuffer>>}
      */
     buffers: {
-        mix: {},
-        intake: { ignitionOn: null, idle: null, ignitionOff: null, revShort: null, revMedium: null, revLong: null },
-        exhaust: { ignitionOn: null, idle: null, ignitionOff: null, revShort: null, revMedium: null, revLong: null },
-        interior: { ignitionOn: null, idle: null, ignitionOff: null, revShort: null, revMedium: null, revLong: null }
+        intake: {},
+        exhaust: {},
+        interior: {}
     },
 
     /** @type {THREE.PositionalAudio|null} Currently active audio emitter */
@@ -903,8 +902,25 @@ const soundEngine = {
     load() {
         const engine = this
         const loadPromises = []
-        
+
         Object.keys(engine.buffers).forEach(pos => {
+            // If this were a "real" project, with different assets in different positions,
+            // we would certainly handle file loading more gracefully. ¯\_(ツ)_/¯
+            engine.buffers[pos] = {
+                ignitionOn: null,
+                idle: null,
+                ignitionOff: null,
+                revShort: null,
+                revShort02: null,
+                revShort03: null,
+                revMedium: null,
+                revMedium02: null,
+                revMedium03: null,
+                revLong: null,
+                revLong02: null,
+                revLong03: null
+            }
+            
             Object.keys(engine.buffers[pos]).forEach(key => {
                 const promise = loadAudioFile(audioLoader, `./audio/${pos}/${key}.ogg`)
                     .then(buffer => {
