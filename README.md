@@ -1,4 +1,4 @@
-[Demo](https://acendan.github.io/rx7sim/)
+[Demo]([https://acendan.github.io/rx7sim/](https://www.aaroncendan.me/rx7sim))
 
 ---
 
