@@ -1,4 +1,4 @@
-[Demo]([https://acendan.github.io/rx7sim/](https://www.aaroncendan.me/rx7sim))
+## [Click here to check out the demo!](https://www.aaroncendan.me/rx7sim)
 
 ---
 
