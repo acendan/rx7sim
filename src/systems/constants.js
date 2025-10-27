@@ -62,8 +62,8 @@ export const SoloBtnColors = {
 export const EmitterVolMults = {
     MIX: 0.8,       // Applied to each individually during mix solo state
     INTAKE: 0.5,
-    EXHAUST: 0.8,
-    INTERIOR: 0.3
+    EXHAUST: 1.0,
+    INTERIOR: 0.2
 }
 
 /**
